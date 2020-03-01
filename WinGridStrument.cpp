@@ -3,20 +3,30 @@
 
 #include "framework.h"
 #include "WinGridStrument.h"
+#include "map"
+#include <cassert>
+#include "GridPointer.h"
+#include <iostream>
 
-#define MAX_LOADSTRING 100
+const static int MAX_LOADSTRING = 100;
 
 // Global Variables:
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
+std::map<int,GridPointer> gridPointers;
+
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 
+// ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -55,8 +65,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return (int)msg.wParam;
 }
 
-
-
+// ======================================================================
 //
 //  FUNCTION: MyRegisterClass()
 //
@@ -83,6 +92,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
+// ======================================================================
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -111,6 +121,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
+// ======================================================================
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -123,6 +134,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    HGDIOBJ hPen = NULL;
+    HGDIOBJ hPenOld;
+
     switch (message)
     {
     case WM_POINTERDOWN:
@@ -132,7 +146,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (pointer_type == PT_TOUCH) {
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
-            //OnPointerDownHandler(hWnd, pti);
+            OnPointerDownHandler(hWnd, pti);
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, TRUE);
+        }
+    }
+    break;
+    case WM_POINTERUPDATE:
+    {
+        POINTER_INPUT_TYPE pointer_type;
+        GetPointerType(GET_POINTERID_WPARAM(wParam), &pointer_type);
+        if (pointer_type == PT_TOUCH) {
+            POINTER_TOUCH_INFO pti;
+            GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
+            OnPointerUpdateHandler(hWnd, pti);
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, TRUE);
+        }
+    }
+    break;
+    case WM_POINTERUP:
+    {
+        POINTER_INPUT_TYPE pointer_type;
+        GetPointerType(GET_POINTERID_WPARAM(wParam), &pointer_type);
+        if (pointer_type == PT_TOUCH) {
+            POINTER_TOUCH_INFO pti;
+            GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
+            OnPointerUpHandler(hWnd, pti);
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+            InvalidateRect(hWnd, &rc, TRUE);
         }
     }
     break;
@@ -156,8 +201,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
+        LOGBRUSH lb;
+        lb.lbStyle = BS_SOLID;
+        lb.lbColor = RGB(100, 0, 100);
         HDC hdc = BeginPaint(hWnd, &ps);
         // TODO: Add any drawing code that uses hdc here...
+        hPen = ExtCreatePen(PS_GEOMETRIC, 5, &lb, 0, NULL);
+        hPenOld = SelectObject(hdc, hPen);
+        for (auto p : gridPointers) {
+            RECT rc = p.second.rect();
+            MoveToEx(hdc, rc.left, rc.top, NULL);
+            LineTo(hdc, rc.right, rc.top);
+            LineTo(hdc, rc.right, rc.bottom);
+            LineTo(hdc, rc.left, rc.bottom);
+            LineTo(hdc, rc.left, rc.top);
+        }
+        SelectObject(hdc, hPenOld);
+        DeleteObject(hPen);
         EndPaint(hWnd, &ps);
     }
     break;
@@ -170,6 +230,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+// ======================================================================
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -188,4 +249,77 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+
+// ======================================================================
+void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
+{
+    int id = pti.pointerInfo.pointerId;
+#ifndef NDEBUG
+    for (auto pair : gridPointers) {
+        assert(pair.first != id);
+    }
+#endif
+    POINT lt, rb, xy;
+    lt.x = pti.rcContact.left;
+    lt.y = pti.rcContact.top;
+    rb.x = pti.rcContact.right;
+    rb.y = pti.rcContact.bottom;
+    xy = pti.pointerInfo.ptPixelLocation;
+    ScreenToClient(hWnd, &lt);
+    ScreenToClient(hWnd, &rb);
+    ScreenToClient(hWnd, &xy);
+    RECT r;
+    r.left = lt.x;
+    r.top = lt.y;
+    r.right = rb.x;
+    r.bottom = rb.y;
+    gridPointers.emplace(id, GridPointer(id,r,xy,pti.pressure));
+}
+
+// ======================================================================
+void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
+{
+    int id = pti.pointerInfo.pointerId;
+#ifndef NDEBUG
+    bool found = false;
+    for (auto pair : gridPointers) {
+        if (pair.first == id) {
+            found = true;
+        }
+    }
+    assert(found);
+#endif
+    auto &p = gridPointers[id];
+    POINT lt, rb, xy;
+    lt.x = pti.rcContact.left;
+    lt.y = pti.rcContact.top;
+    rb.x = pti.rcContact.right;
+    rb.y = pti.rcContact.bottom;
+    xy = pti.pointerInfo.ptPixelLocation;
+    ScreenToClient(hWnd, &lt);
+    ScreenToClient(hWnd, &rb);
+    ScreenToClient(hWnd, &xy);
+    RECT r;
+    r.left = lt.x;
+    r.top = lt.y;
+    r.right = rb.x;
+    r.bottom = rb.y;
+    p.update(r, xy, pti.pressure);
+}
+
+// ======================================================================
+void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
+{
+    int id = pti.pointerInfo.pointerId;
+#ifndef NDEBUG
+    bool found = false;
+    for (auto pair : gridPointers) {
+        if (pair.first == id) {
+            found = true; 
+        }
+    }
+    assert(found);
+#endif
+    gridPointers.erase(id);
 }
