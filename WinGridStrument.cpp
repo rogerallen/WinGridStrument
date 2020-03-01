@@ -7,6 +7,7 @@
 #include <cassert>
 #include "GridPointer.h"
 #include <iostream>
+#include <fstream>
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
 
@@ -56,7 +57,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: Place code here.
+#ifndef NDEBUG
+    std::ofstream out("logfile.txt");
+    std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
+    std::cout.rdbuf(out.rdbuf()); //redirect std::cout
+#endif
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -350,6 +355,10 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
+#ifndef NDEBUG
+    // seems that pti.pressure is always 512 for fingers.
+    //std::cout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
+#endif
     p.update(r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
 }
