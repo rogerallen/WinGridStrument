@@ -7,6 +7,8 @@
 #include <cassert>
 #include "GridPointer.h"
 #include <iostream>
+#include <d2d1.h>
+#pragma comment(lib, "d2d1")
 
 const static int MAX_LOADSTRING = 100;
 
@@ -15,17 +17,35 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
-std::map<int,GridPointer> gridPointers;
+// D2D vars -- really globals?
+ID2D1Factory* pFactory;
+ID2D1HwndRenderTarget* pRenderTarget;
+
+std::map<int, GridPointer> gridPointers;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+
+HRESULT CreateGraphicsResources(HWND);
+void DiscardGraphicsResources();
+void OnResize(HWND hWnd);
+void OnPaint(HWND hWnd);
+
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
-void ScreenToClient(HWND hWnd, RECT *r);
+void ScreenToClient(HWND hWnd, RECT* r);
+
+// ======================================================================
+template <class T> void SafeRelease(T** ppT) {
+    if (*ppT) {
+        (*ppT)->Release();
+        *ppT = NULL;
+    }
+}
 
 // ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -135,9 +155,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    HGDIOBJ hPen = NULL;
-    HGDIOBJ hPenOld;
-
     switch (message)
     {
     case WM_POINTERDOWN:
@@ -190,30 +207,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
     }
     break;
+    case WM_SIZE:
+        OnResize(hWnd);
+        break;
     case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        LOGBRUSH lb;
-        lb.lbStyle = BS_SOLID;
-        lb.lbColor = RGB(100, 0, 100);
-        HDC hdc = BeginPaint(hWnd, &ps);
-        // TODO: Add any drawing code that uses hdc here...
-        hPen = ExtCreatePen(PS_GEOMETRIC, 5, &lb, 0, NULL);
-        hPenOld = SelectObject(hdc, hPen);
-        for (auto p : gridPointers) {
-            RECT rc = p.second.rect();
-            MoveToEx(hdc, rc.left, rc.top, NULL);
-            LineTo(hdc, rc.right, rc.top);
-            LineTo(hdc, rc.right, rc.bottom);
-            LineTo(hdc, rc.left, rc.bottom);
-            LineTo(hdc, rc.left, rc.top);
+        OnPaint(hWnd);
+        break;
+    case WM_CREATE:
+        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pFactory))) {
+            return -1;  // Fail CreateWindowEx.
         }
-        SelectObject(hdc, hPenOld);
-        DeleteObject(hPen);
-        EndPaint(hWnd, &ps);
-    }
-    break;
+        break;
     case WM_DESTROY:
+        DiscardGraphicsResources();
+        SafeRelease(&pFactory);
         PostQuitMessage(0);
         break;
     default:
@@ -244,6 +251,71 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 // ======================================================================
+HRESULT CreateGraphicsResources(HWND hWnd)
+{
+    HRESULT hr = S_OK;
+    if (pRenderTarget == NULL) {
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+
+        D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
+
+        hr = pFactory->CreateHwndRenderTarget(
+            D2D1::RenderTargetProperties(),
+            D2D1::HwndRenderTargetProperties(hWnd, size),
+            &pRenderTarget);
+
+    }
+    return hr;
+}
+void DiscardGraphicsResources()
+{
+    SafeRelease(&pRenderTarget);
+}
+
+void OnResize(HWND hWnd) {
+    if (pRenderTarget != NULL) {
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+
+        D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
+        pRenderTarget->Resize(size);
+        InvalidateRect(hWnd, NULL, FALSE);
+    }
+}
+
+void OnPaint(HWND hWnd) {
+    HRESULT hr = CreateGraphicsResources(hWnd);
+    if (SUCCEEDED(hr))
+    {
+        PAINTSTRUCT ps;
+        BeginPaint(hWnd, &ps);
+
+        pRenderTarget->BeginDraw();
+
+        pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::SkyBlue));
+        for (auto p : gridPointers) {
+            ID2D1SolidColorBrush* pBrush;
+            float pressure = p.second.pressure() / 512.0f;
+            const D2D1_COLOR_F color = D2D1::ColorF(pressure, 0.0f, pressure);
+            HRESULT hr = pRenderTarget->CreateSolidColorBrush(color, &pBrush);
+            if (SUCCEEDED(hr)) {
+                RECT rc = p.second.rect();
+                D2D1_RECT_F rcf = D2D1::RectF((float)rc.left, (float)rc.top, (float)rc.right, (float)rc.bottom);
+                pRenderTarget->FillRectangle(&rcf, pBrush);
+                SafeRelease(&pBrush);
+            }
+        }
+
+        hr = pRenderTarget->EndDraw();
+        if (FAILED(hr) || hr == D2DERR_RECREATE_TARGET) {
+            DiscardGraphicsResources();
+        }
+        EndPaint(hWnd, &ps);
+    }
+}
+
+// ======================================================================
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
@@ -256,10 +328,8 @@ void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
-    gridPointers.emplace(id, GridPointer(id,r,xy,pti.pressure));
-    RECT rc;
-    GetClientRect(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    gridPointers.emplace(id, GridPointer(id, r, xy, pti.pressure));
+    InvalidateRect(hWnd, NULL, FALSE);
 }
 
 // ======================================================================
@@ -275,15 +345,13 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     }
     assert(found);
 #endif
-    auto &p = gridPointers[id];
+    auto& p = gridPointers[id];
     POINT xy = pti.pointerInfo.ptPixelLocation;
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
     p.update(r, xy, pti.pressure);
-    RECT rc;
-    GetClientRect(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    InvalidateRect(hWnd, NULL, FALSE);
 }
 
 // ======================================================================
@@ -294,18 +362,16 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     bool found = false;
     for (auto pair : gridPointers) {
         if (pair.first == id) {
-            found = true; 
+            found = true;
         }
     }
     assert(found);
 #endif
     gridPointers.erase(id);
-    RECT rc;
-    GetClientRect(hWnd, &rc);
-    InvalidateRect(hWnd, &rc, TRUE);
+    InvalidateRect(hWnd, NULL, FALSE);
 }
 
-void ScreenToClient(HWND hWnd, RECT *r)
+void ScreenToClient(HWND hWnd, RECT* r)
 {
     POINT lt, rb;
     lt.x = r->left;
@@ -314,8 +380,8 @@ void ScreenToClient(HWND hWnd, RECT *r)
     rb.y = r->bottom;
     ScreenToClient(hWnd, &lt);
     ScreenToClient(hWnd, &rb);
-    r->left   = lt.x;
-    r->top    = lt.y;
-    r->right  = rb.x;
+    r->left = lt.x;
+    r->top = lt.y;
+    r->right = rb.x;
     r->bottom = rb.y;
 }
