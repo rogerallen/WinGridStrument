@@ -25,6 +25,7 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+void ScreenToClient(HWND hWnd, RECT *r);
 
 // ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -147,9 +148,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerDownHandler(hWnd, pti);
-            RECT rc;
-            GetClientRect(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
         }
     }
     break;
@@ -161,9 +159,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpdateHandler(hWnd, pti);
-            RECT rc;
-            GetClientRect(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
         }
     }
     break;
@@ -175,9 +170,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpHandler(hWnd, pti);
-            RECT rc;
-            GetClientRect(hWnd, &rc);
-            InvalidateRect(hWnd, &rc, TRUE);
         }
     }
     break;
@@ -259,22 +251,15 @@ void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     for (auto pair : gridPointers) {
         assert(pair.first != id);
     }
-#endif
-    POINT lt, rb, xy;
-    lt.x = pti.rcContact.left;
-    lt.y = pti.rcContact.top;
-    rb.x = pti.rcContact.right;
-    rb.y = pti.rcContact.bottom;
-    xy = pti.pointerInfo.ptPixelLocation;
-    ScreenToClient(hWnd, &lt);
-    ScreenToClient(hWnd, &rb);
+#endif    
+    POINT xy = pti.pointerInfo.ptPixelLocation;
+    RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
-    RECT r;
-    r.left = lt.x;
-    r.top = lt.y;
-    r.right = rb.x;
-    r.bottom = rb.y;
+    ScreenToClient(hWnd, &r);
     gridPointers.emplace(id, GridPointer(id,r,xy,pti.pressure));
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    InvalidateRect(hWnd, &rc, TRUE);
 }
 
 // ======================================================================
@@ -291,21 +276,14 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     assert(found);
 #endif
     auto &p = gridPointers[id];
-    POINT lt, rb, xy;
-    lt.x = pti.rcContact.left;
-    lt.y = pti.rcContact.top;
-    rb.x = pti.rcContact.right;
-    rb.y = pti.rcContact.bottom;
-    xy = pti.pointerInfo.ptPixelLocation;
-    ScreenToClient(hWnd, &lt);
-    ScreenToClient(hWnd, &rb);
+    POINT xy = pti.pointerInfo.ptPixelLocation;
+    RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
-    RECT r;
-    r.left = lt.x;
-    r.top = lt.y;
-    r.right = rb.x;
-    r.bottom = rb.y;
+    ScreenToClient(hWnd, &r);
     p.update(r, xy, pti.pressure);
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    InvalidateRect(hWnd, &rc, TRUE);
 }
 
 // ======================================================================
@@ -322,4 +300,22 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     assert(found);
 #endif
     gridPointers.erase(id);
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    InvalidateRect(hWnd, &rc, TRUE);
+}
+
+void ScreenToClient(HWND hWnd, RECT *r)
+{
+    POINT lt, rb;
+    lt.x = r->left;
+    lt.y = r->top;
+    rb.x = r->right;
+    rb.y = r->bottom;
+    ScreenToClient(hWnd, &lt);
+    ScreenToClient(hWnd, &rb);
+    r->left   = lt.x;
+    r->top    = lt.y;
+    r->right  = rb.x;
+    r->bottom = rb.y;
 }
