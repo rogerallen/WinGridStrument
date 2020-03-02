@@ -10,6 +10,8 @@
 #include <fstream>
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
+#include <mmsystem.h>  // multimedia functions (such as MIDI) for Windows
+#pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
 
@@ -21,6 +23,17 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 // D2D vars -- really globals?
 ID2D1Factory* pFactory;
 ID2D1HwndRenderTarget* pRenderTarget;
+
+// Ah, here is software to create connection from this sw to reaper
+// // http://www.tobias-erichsen.de/software/loopmidi.html
+// MIDI vars
+HMIDIOUT midiDevice;
+// variable which is both an integer and an array of characters:
+typedef union midimessage { unsigned long word; unsigned char data[4]; } MidiMessage;
+// message.data[0] = command byte of the MIDI message, for example: 0x90
+// message.data[1] = first data byte of the MIDI message, for example: 60
+// message.data[2] = second data byte of the MIDI message, for example 100
+// message.data[3] = not used for any MIDI messages, so set to 0
 
 std::map<int, GridPointer> gridPointers;
 
@@ -36,11 +49,9 @@ void OnResize(HWND hWnd);
 void OnPaint(HWND hWnd);
 
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
-//void OnPointerDownHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
-void OnPointerUpHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void ScreenToClient(HWND hWnd, RECT* r);
 
 // ======================================================================
@@ -62,9 +73,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 #ifndef NDEBUG
     std::ofstream out("logfile.txt");
-    std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
-    std::cout.rdbuf(out.rdbuf()); //redirect std::cout
+    std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
+    std::cout.rdbuf(out.rdbuf()); // redirect std::cout
+    std::wofstream wout("logfilew.txt");
+    std::wstreambuf* wcoutbuf = std::wcout.rdbuf(); // save old buf
+    std::wcout.rdbuf(wout.rdbuf()); // redirect std::cout
 #endif
+
+    // Query number of midi devices
+    UINT numMidiDevices = midiOutGetNumDevs();
+    for (unsigned int i = 0; i < numMidiDevices; i++) {
+        MIDIOUTCAPS caps;
+        MMRESULT rc = midiOutGetDevCaps(i, &caps, sizeof(MIDIOUTCAPS));
+        if (rc != MMSYSERR_NOERROR) {
+            std::cout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
+        }
+        else {
+            std::wcout << "device " << i << " is " << caps.szPname << std::endl;
+        }
+    }
+    // Open the MIDI output port
+    int midiport = 1; // FIXME 1 = loopMIDI
+    MMRESULT rc = midiOutOpen(&midiDevice, midiport, 0, 0, CALLBACK_NULL);
+    if (rc != MMSYSERR_NOERROR) {
+        std::cout << "Error opening MIDI Output.\n" << std::endl;
+        return 1;
+    }
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -90,6 +124,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             DispatchMessage(&msg);
         }
     }
+
+    // turn any MIDI notes currently playing:
+    midiOutReset(midiDevice);
+    // Remove any data in MIDI device and close the MIDI Output port
+    midiOutClose(midiDevice);
 
     return (int)msg.wParam;
 }
@@ -344,6 +383,16 @@ void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     ScreenToClient(hWnd, &r);
     gridPointers.emplace(id, GridPointer(id, r, xy, pti.pressure));
     InvalidateRect(hWnd, NULL, FALSE);
+    // test midi
+    MidiMessage message;
+    message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
+    message.data[1] = 60;    // MIDI note-on message: Key number (60 = middle C)
+    message.data[2] = 100;   // MIDI note-on message: Key velocity (100 = loud)
+    message.data[3] = 0;     // Unused parameter
+    MMRESULT rc = midiOutShortMsg(midiDevice, message.word);
+    if (rc != MMSYSERR_NOERROR) {
+        printf("Warning: MIDI Output is not open.\n");
+    }
 }
 
 // ======================================================================
@@ -420,6 +469,16 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 #endif
     gridPointers.erase(id);
     InvalidateRect(hWnd, NULL, FALSE);
+    // test midi
+    MidiMessage message;
+    message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
+    message.data[1] = 60;    // MIDI note-on message: Key number (60 = middle C)
+    message.data[2] = 0;     // MIDI note-on message: Key velocity (0 = OFF)
+    message.data[3] = 0;     // Unused parameter
+    MMRESULT rc = midiOutShortMsg(midiDevice, message.word);
+    if (rc != MMSYSERR_NOERROR) {
+        printf("Warning: MIDI Output is not open.\n");
+    }
 }
 
 void ScreenToClient(HWND hWnd, RECT* r)
