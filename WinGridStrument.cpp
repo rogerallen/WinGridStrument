@@ -72,12 +72,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
 #ifndef NDEBUG
-    std::ofstream out("logfile.txt");
-    std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(out.rdbuf()); // redirect std::cout
-    std::wofstream wout("logfilew.txt");
+    std::wofstream wout("logfile.txt");
     std::wstreambuf* wcoutbuf = std::wcout.rdbuf(); // save old buf
-    std::wcout.rdbuf(wout.rdbuf()); // redirect std::cout
+    std::wcout.rdbuf(wout.rdbuf()); // redirect std::wcout
 #endif
 
     // Query number of midi devices
@@ -86,7 +83,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         MIDIOUTCAPS caps;
         MMRESULT rc = midiOutGetDevCaps(i, &caps, sizeof(MIDIOUTCAPS));
         if (rc != MMSYSERR_NOERROR) {
-            std::cout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
+            std::wcout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
         }
         else {
             std::wcout << "device " << i << " is " << caps.szPname << std::endl;
@@ -96,7 +93,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     int midiport = 1; // FIXME 1 = loopMIDI
     MMRESULT rc = midiOutOpen(&midiDevice, midiport, 0, 0, CALLBACK_NULL);
     if (rc != MMSYSERR_NOERROR) {
-        std::cout << "Error opening MIDI Output.\n" << std::endl;
+        std::wcout << "Error opening MIDI Output.\n" << std::endl;
         return 1;
     }
 
@@ -415,7 +412,7 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     ScreenToClient(hWnd, &r);
 #ifndef NDEBUG
     // seems that pti.pressure is always 512 for fingers.
-    // std::cout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
+    // std::wcout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
 #endif
     p.update(r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
@@ -444,12 +441,12 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
     else {
         // FIXME - remove the previous Pen gridPointer.  It is being replaced
         // (assuming 1 pen per system)
-        std::cout << "pen id=" << id << " NEW!" << std::endl;
+        std::wcout << "pen id=" << id << " NEW!" << std::endl;
         gridPointers.emplace(id, GridPointer(id, r, xy, ppi.pressure));
     }
 #ifndef NDEBUG
     // seems that ppi.pressure is 0..1024 for pens.
-    std::cout << "pen id=" << id << " pressure=" << ppi.pressure << std::endl;
+    std::wcout << "pen id=" << id << " pressure=" << ppi.pressure << std::endl;
 #endif
     InvalidateRect(hWnd, NULL, FALSE);
 }
