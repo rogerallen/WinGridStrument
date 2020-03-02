@@ -36,8 +36,11 @@ void OnResize(HWND hWnd);
 void OnPaint(HWND hWnd);
 
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+//void OnPointerDownHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+void OnPointerUpHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void ScreenToClient(HWND hWnd, RECT* r);
 
 // ======================================================================
@@ -170,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerDownHandler(hWnd, pti);
-        }
+        } // we do not get (pointer_type == PT_PEN) 
     }
     break;
     case WM_POINTERUPDATE:
@@ -182,6 +185,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpdateHandler(hWnd, pti);
         }
+        else if (pointer_type == PT_PEN) {
+            // all the events for PEN go through here
+            POINTER_PEN_INFO ppi;
+            GetPointerPenInfo(GET_POINTERID_WPARAM(wParam), &ppi);
+            OnPointerUpdateHandler(hWnd, ppi);
+        }
     }
     break;
     case WM_POINTERUP:
@@ -192,7 +201,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             POINTER_TOUCH_INFO pti;
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpHandler(hWnd, pti);
-        }
+        } // don't get these (pointer_type == PT_PEN)
     }
     break;
     case WM_COMMAND:
@@ -357,9 +366,42 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     ScreenToClient(hWnd, &r);
 #ifndef NDEBUG
     // seems that pti.pressure is always 512 for fingers.
-    //std::cout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
+    // std::cout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
 #endif
     p.update(r, xy, pti.pressure);
+    InvalidateRect(hWnd, NULL, FALSE);
+}
+
+void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
+{
+    int id = ppi.pointerInfo.pointerId;
+    POINT xy = ppi.pointerInfo.ptPixelLocation;
+    RECT r = { xy.x - 5, xy.y - 5, xy.x + 5, xy.y + 5 };
+    ScreenToClient(hWnd, &xy);
+    ScreenToClient(hWnd, &r);
+    if ((ppi.pointerInfo.pointerFlags & POINTER_FLAG_NEW) == 0) {
+#ifndef NDEBUG
+        bool found = false;
+        for (auto pair : gridPointers) {
+            if (pair.first == id) {
+                found = true;
+            }
+        }
+        assert(found);
+#endif
+        auto& p = gridPointers[id];
+        p.update(r, xy, ppi.pressure);
+    }
+    else {
+        // FIXME - remove the previous Pen gridPointer.  It is being replaced
+        // (assuming 1 pen per system)
+        std::cout << "pen id=" << id << " NEW!" << std::endl;
+        gridPointers.emplace(id, GridPointer(id, r, xy, ppi.pressure));
+    }
+#ifndef NDEBUG
+    // seems that ppi.pressure is 0..1024 for pens.
+    std::cout << "pen id=" << id << " pressure=" << ppi.pressure << std::endl;
+#endif
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
