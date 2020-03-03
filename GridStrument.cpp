@@ -105,11 +105,15 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     grid_pointers_.emplace(id, GridPointer(id, rect, point, pressure));
     int note = PointToMidiNote(point);
     grid_notes_.emplace(id, note);
+    int channel = (id % 10) + 1;
+    grid_channels_.emplace(id, channel);
+    int midi_pressure = RectToMidiPressure(rect);
+    grid_mod_pitch_.emplace(id, -1);
     if (note >= 0) {
         MidiMessage message;
-        message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
+        message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
         message.data[1] = note;  // MIDI note-on message: Key number (60 = middle C)
-        message.data[2] = 100;   // MIDI note-on message: Key velocity (100 = loud)
+        message.data[2] = midi_pressure;   // MIDI note-on message: Key velocity (100 = loud)
         message.data[3] = 0;     // Unused parameter
         MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
         if (rc != MMSYSERR_NOERROR) {
@@ -132,6 +136,22 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
 #endif
     auto& p = grid_pointers_[id];
     p.update(rect, point, pressure);
+    int channel = grid_channels_[id];
+    POINT change = p.pointChange();
+    int mod_pitch = PointChangeToMidiPitch(change);
+    if (mod_pitch != grid_mod_pitch_[id]) {
+        // FIXME - maybe rate limit further?
+        grid_mod_pitch_[id] = mod_pitch;
+        MidiMessage message;
+        message.data[0] = 0xe0 + channel;  // MIDI Pitch Bend Change
+        message.data[1] = mod_pitch & 0x7f;  // low bits
+        message.data[2] = (mod_pitch >> 7) & 0x7f; // high bits
+        message.data[3] = 0;     // Unused parameter
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
+        if (rc != MMSYSERR_NOERROR) {
+            printf("Warning: MIDI Output is not open.\n");
+        }
+    }
 }
 
 void GridStrument::PointerUp(int id)
@@ -148,9 +168,12 @@ void GridStrument::PointerUp(int id)
     grid_pointers_.erase(id);
     int note = grid_notes_[id];
     grid_notes_.erase(id);
+    int channel = grid_channels_[id];
+    grid_channels_.erase(id);
+    grid_mod_pitch_.erase(id);
     if (note >= 0) {
         MidiMessage message;
-        message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
+        message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
         message.data[1] = note;  // MIDI note-on message: Key number (60 = middle C)
         message.data[2] = 0;     // MIDI note-on message: Key velocity (0 = OFF)
         message.data[3] = 0;     // Unused parameter
@@ -182,4 +205,31 @@ int GridStrument::GridLocToMidiNote(int x, int y)
         note = 127;
     }
     return note;
+}
+
+int GridStrument::RectToMidiPressure(RECT rect)
+{
+    int x = (rect.right - rect.left);
+    int y = (rect.bottom - rect.top);
+    int area = x * y;
+    float ratio = static_cast<float>(area) / (GRID_SIZE/2 * GRID_SIZE/2);
+    int pressure = ratio * 70;
+    if (pressure > 127) {
+        pressure = 127;
+    }
+    return pressure;
+}
+
+int GridStrument::PointChangeToMidiPitch(POINT delta)
+{
+    int dx = delta.x;
+    float ratio = static_cast<float>(dx) / GRID_SIZE;
+    int pitch = 0x2000 + static_cast<int>(0x2000 * (dx / (12.0f * GRID_SIZE)));
+    if (pitch > 0x3fff) {
+        pitch = 0x3fff;
+    }
+    else if (pitch < 0) {
+        pitch = 0;
+    }
+    return pitch;
 }

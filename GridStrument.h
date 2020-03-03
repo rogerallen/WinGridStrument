@@ -8,6 +8,8 @@ class GridStrument
 {
     std::map<int, GridPointer> grid_pointers_;
     std::map<int, int> grid_notes_;
+    std::map<int, int> grid_channels_;
+    std::map<int, int> grid_mod_pitch_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
     HMIDIOUT midi_device_;
@@ -24,5 +26,7 @@ public:
 private:
     int PointToMidiNote(POINT point);
     int GridLocToMidiNote(int x, int y);
+    int RectToMidiPressure(RECT rect);
+    int PointChangeToMidiPitch(POINT change);
 };
 

@@ -6,6 +6,7 @@ class GridPointer
     RECT  rect_;
     POINT point_;
     int   pressure_;
+    POINT starting_point_;
 public:
     GridPointer();
     GridPointer(int id, RECT rect, POINT point, int pressure);
@@ -14,5 +15,6 @@ public:
     RECT rect() { return rect_; };
     POINT point() { return point_; };
     int pressure() { return pressure_; };
+    POINT pointChange();
 };
 
