@@ -311,13 +311,12 @@ void DiscardGraphicsResources()
 }
 
 void OnResize(HWND hWnd) {
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
+    g_gridStrument->Resize(size);
     if (g_d2dRenderTarget != NULL) {
-        RECT rc;
-        GetClientRect(hWnd, &rc);
-
-        D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
         g_d2dRenderTarget->Resize(size);
-        g_gridStrument->Resize(size);
         InvalidateRect(hWnd, NULL, FALSE);
     }
 }
