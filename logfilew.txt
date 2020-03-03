@@ -1,2 +1,0 @@
-device 0 is Microsoft GS Wavetable Synth
-device 1 is loopMIDI Port
