@@ -149,12 +149,16 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="GridPointer.h" />
+    <ClInclude Include="GridStrument.h" />
+    <ClInclude Include="GridUtils.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="WinGridStrument.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GridPointer.cpp" />
+    <ClCompile Include="GridStrument.cpp" />
+    <ClCompile Include="GridUtils.cpp" />
     <ClCompile Include="WinGridStrument.cpp" />
   </ItemGroup>
   <ItemGroup>

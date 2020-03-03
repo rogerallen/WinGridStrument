@@ -2,18 +2,18 @@
 
 GridPointer::GridPointer()
 {
-    _id = -1;
+    id_ = -1;
     // FIXME initialize all
 }
 
 GridPointer::GridPointer(int id, RECT rect, POINT point, int pressure) : 
-    _id(id), _rect(rect), _point(point), _pressure(pressure)
+    id_(id), rect_(rect), point_(point), pressure_(pressure)
 {
 }
 
 void GridPointer::update(RECT rect, POINT point, int pressure)
 {
-    _rect = rect;
-    _point = point;
-    _pressure = pressure;
+    rect_ = rect;
+    point_ = point;
+    pressure_ = pressure;
 }

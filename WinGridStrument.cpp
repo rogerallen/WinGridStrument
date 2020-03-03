@@ -1,13 +1,15 @@
 // WinGridStrument.cpp : Defines the entry point for the application.
-//
 
 #include "framework.h"
 #include "WinGridStrument.h"
-#include "map"
+#include "GridStrument.h"
+#include "GridUtils.h"
+
+#include <map>
 #include <cassert>
-#include "GridPointer.h"
 #include <iostream>
 #include <fstream>
+
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
 #include <mmsystem.h>  // multimedia functions (such as MIDI) for Windows
@@ -16,32 +18,34 @@
 const static int MAX_LOADSTRING = 100;
 
 // Global Variables:
-HINSTANCE hInst;                                // current instance
-WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+HINSTANCE g_instance;                // current instance
+WCHAR g_title[MAX_LOADSTRING];       // The title bar textfP
+WCHAR g_windowClass[MAX_LOADSTRING]; // the main window class name
 
 // D2D vars -- really globals?
-ID2D1Factory* pFactory;
-ID2D1HwndRenderTarget* pRenderTarget;
+ID2D1Factory* g_d2dFactory;
+ID2D1HwndRenderTarget* g_d2dRenderTarget;
 
+// FIXME - add this to README
 // Ah, here is software to create connection from this sw to reaper
-// // http://www.tobias-erichsen.de/software/loopmidi.html
-// MIDI vars
-HMIDIOUT midiDevice;
-// variable which is both an integer and an array of characters:
-typedef union midimessage { unsigned long word; unsigned char data[4]; } MidiMessage;
-// message.data[0] = command byte of the MIDI message, for example: 0x90
-// message.data[1] = first data byte of the MIDI message, for example: 60
-// message.data[2] = second data byte of the MIDI message, for example 100
-// message.data[3] = not used for any MIDI messages, so set to 0
+// http://www.tobias-erichsen.de/software/loopmidi.html
 
-std::map<int, GridPointer> gridPointers;
+// MIDI vars
+HMIDIOUT g_midiDevice;
+
+// Instrument Class Vars
+GridStrument* g_gridStrument;
+
+// FIXME - DPI Awareness...do we need to be aware?
+// https://docs.microsoft.com/en-us/windows/win32/api/windef/ne-windef-dpi_awareness
+// older deprecated (with no notice!)
+// https://docs.microsoft.com/en-us/windows/win32/direct2d/how-to--size-a-window-properly-for-high-dpi-displays
 
 // Forward declarations of functions included in this code module:
-ATOM                MyRegisterClass(HINSTANCE hInstance);
-BOOL                InitInstance(HINSTANCE, int);
-LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+ATOM             MyRegisterClass(HINSTANCE hInstance);
+BOOL             InitInstance(HINSTANCE, int);
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 HRESULT CreateGraphicsResources(HWND);
 void DiscardGraphicsResources();
@@ -50,17 +54,13 @@ void OnPaint(HWND hWnd);
 
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
-void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
+//void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi);
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
+
 void ScreenToClient(HWND hWnd, RECT* r);
 
-// ======================================================================
-template <class T> void SafeRelease(T** ppT) {
-    if (*ppT) {
-        (*ppT)->Release();
-        *ppT = NULL;
-    }
-}
+MMRESULT StartMidi();
+void StopMidi();
 
 // ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -71,35 +71,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-#ifndef NDEBUG
-    std::wofstream wout("logfile.txt");
-    std::wstreambuf* wcoutbuf = std::wcout.rdbuf(); // save old buf
-    std::wcout.rdbuf(wout.rdbuf()); // redirect std::wcout
-#endif
+    // setup wcout to save output to a logfile.txt
+    std::wofstream logstream("logfile.txt");
+    std::wstreambuf* old_wcout = std::wcout.rdbuf(); // save old buf
+    std::wcout.rdbuf(logstream.rdbuf());                 // redirect std::wcout
 
-    // Query number of midi devices
-    UINT numMidiDevices = midiOutGetNumDevs();
-    for (unsigned int i = 0; i < numMidiDevices; i++) {
-        MIDIOUTCAPS caps;
-        MMRESULT rc = midiOutGetDevCaps(i, &caps, sizeof(MIDIOUTCAPS));
-        if (rc != MMSYSERR_NOERROR) {
-            std::wcout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
-        }
-        else {
-            std::wcout << "device " << i << " is " << caps.szPname << std::endl;
-        }
-    }
-    // Open the MIDI output port
-    int midiport = 1; // FIXME 1 = loopMIDI
-    MMRESULT rc = midiOutOpen(&midiDevice, midiport, 0, 0, CALLBACK_NULL);
+    MMRESULT rc = StartMidi();
     if (rc != MMSYSERR_NOERROR) {
         std::wcout << "Error opening MIDI Output.\n" << std::endl;
         return 1;
     }
+    g_gridStrument = new GridStrument(g_midiDevice);
+
 
     // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_WINGRIDSTRUMENT, szWindowClass, MAX_LOADSTRING);
+    LoadStringW(hInstance, IDS_APP_TITLE, g_title, MAX_LOADSTRING);
+    LoadStringW(hInstance, IDC_WINGRIDSTRUMENT, g_windowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -122,10 +109,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         }
     }
 
-    // turn any MIDI notes currently playing:
-    midiOutReset(midiDevice);
-    // Remove any data in MIDI device and close the MIDI Output port
-    midiOutClose(midiDevice);
+    StopMidi();
 
     return (int)msg.wParam;
 }
@@ -151,7 +135,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_WINGRIDSTRUMENT);
-    wcex.lpszClassName = szWindowClass;
+    wcex.lpszClassName = g_windowClass;
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
     return RegisterClassExW(&wcex);
@@ -170,9 +154,9 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-    hInst = hInstance; // Store instance handle in our global variable
+    g_instance = hInstance; // Store instance handle in our global variable
 
-    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowW(g_windowClass, g_title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd)
@@ -181,6 +165,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     }
 
     ShowWindow(hWnd, nCmdShow);
+    ShowWindow(hWnd, SW_SHOWMAXIMIZED); // maximize window on startup
     UpdateWindow(hWnd);
 
     return TRUE;
@@ -221,12 +206,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpdateHandler(hWnd, pti);
         }
+#if 0
         else if (pointer_type == PT_PEN) {
             // all the events for PEN go through here
             POINTER_PEN_INFO ppi;
             GetPointerPenInfo(GET_POINTERID_WPARAM(wParam), &ppi);
             OnPointerUpdateHandler(hWnd, ppi);
         }
+#endif
     }
     break;
     case WM_POINTERUP:
@@ -247,7 +234,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
         case IDM_ABOUT:
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            DialogBox(g_instance, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
         case IDM_EXIT:
             DestroyWindow(hWnd);
@@ -264,13 +251,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         OnPaint(hWnd);
         break;
     case WM_CREATE:
-        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pFactory))) {
+        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_d2dFactory))) {
             return -1;  // Fail CreateWindowEx.
         }
         break;
     case WM_DESTROY:
         DiscardGraphicsResources();
-        SafeRelease(&pFactory);
+        SafeRelease(&g_d2dFactory);
         PostQuitMessage(0);
         break;
     default:
@@ -304,32 +291,33 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 HRESULT CreateGraphicsResources(HWND hWnd)
 {
     HRESULT hr = S_OK;
-    if (pRenderTarget == NULL) {
+    if (g_d2dRenderTarget == NULL) {
         RECT rc;
         GetClientRect(hWnd, &rc);
 
         D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
 
-        hr = pFactory->CreateHwndRenderTarget(
+        hr = g_d2dFactory->CreateHwndRenderTarget(
             D2D1::RenderTargetProperties(),
             D2D1::HwndRenderTargetProperties(hWnd, size),
-            &pRenderTarget);
+            &g_d2dRenderTarget);
 
     }
     return hr;
 }
 void DiscardGraphicsResources()
 {
-    SafeRelease(&pRenderTarget);
+    SafeRelease(&g_d2dRenderTarget);
 }
 
 void OnResize(HWND hWnd) {
-    if (pRenderTarget != NULL) {
+    if (g_d2dRenderTarget != NULL) {
         RECT rc;
         GetClientRect(hWnd, &rc);
 
         D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
-        pRenderTarget->Resize(size);
+        g_d2dRenderTarget->Resize(size);
+        g_gridStrument->Resize(size);
         InvalidateRect(hWnd, NULL, FALSE);
     }
 }
@@ -341,23 +329,11 @@ void OnPaint(HWND hWnd) {
         PAINTSTRUCT ps;
         BeginPaint(hWnd, &ps);
 
-        pRenderTarget->BeginDraw();
+        g_d2dRenderTarget->BeginDraw();
 
-        pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::SkyBlue));
-        for (auto p : gridPointers) {
-            ID2D1SolidColorBrush* pBrush;
-            float pressure = p.second.pressure() / 512.0f;
-            const D2D1_COLOR_F color = D2D1::ColorF(pressure, 0.0f, pressure);
-            HRESULT hr = pRenderTarget->CreateSolidColorBrush(color, &pBrush);
-            if (SUCCEEDED(hr)) {
-                RECT rc = p.second.rect();
-                D2D1_RECT_F rcf = D2D1::RectF((float)rc.left, (float)rc.top, (float)rc.right, (float)rc.bottom);
-                pRenderTarget->FillRectangle(&rcf, pBrush);
-                SafeRelease(&pBrush);
-            }
-        }
+        g_gridStrument->Draw(g_d2dRenderTarget);
 
-        hr = pRenderTarget->EndDraw();
+        hr = g_d2dRenderTarget->EndDraw();
         if (FAILED(hr) || hr == D2DERR_RECREATE_TARGET) {
             DiscardGraphicsResources();
         }
@@ -368,56 +344,28 @@ void OnPaint(HWND hWnd) {
 // ======================================================================
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
-    int id = pti.pointerInfo.pointerId;
-#ifndef NDEBUG
-    for (auto pair : gridPointers) {
-        assert(pair.first != id);
-    }
-#endif    
+    int id = pti.pointerInfo.pointerId;  
     POINT xy = pti.pointerInfo.ptPixelLocation;
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
-    gridPointers.emplace(id, GridPointer(id, r, xy, pti.pressure));
+    g_gridStrument->PointerDown(id, r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
-    // test midi
-    MidiMessage message;
-    message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
-    message.data[1] = 60;    // MIDI note-on message: Key number (60 = middle C)
-    message.data[2] = 100;   // MIDI note-on message: Key velocity (100 = loud)
-    message.data[3] = 0;     // Unused parameter
-    MMRESULT rc = midiOutShortMsg(midiDevice, message.word);
-    if (rc != MMSYSERR_NOERROR) {
-        printf("Warning: MIDI Output is not open.\n");
-    }
 }
 
 // ======================================================================
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
-#ifndef NDEBUG
-    bool found = false;
-    for (auto pair : gridPointers) {
-        if (pair.first == id) {
-            found = true;
-        }
-    }
-    assert(found);
-#endif
-    auto& p = gridPointers[id];
     POINT xy = pti.pointerInfo.ptPixelLocation;
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
-#ifndef NDEBUG
-    // seems that pti.pressure is always 512 for fingers.
-    // std::wcout << "touch id=" << id << " pressure=" << pti.pressure << std::endl;
-#endif
-    p.update(r, xy, pti.pressure);
+    g_gridStrument->PointerUpdate(id, r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
+#if 0
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
 {
     int id = ppi.pointerInfo.pointerId;
@@ -428,56 +376,39 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
     if ((ppi.pointerInfo.pointerFlags & POINTER_FLAG_NEW) == 0) {
 #ifndef NDEBUG
         bool found = false;
-        for (auto pair : gridPointers) {
+        for (auto pair : g_gridPointers) {
             if (pair.first == id) {
                 found = true;
             }
         }
         assert(found);
 #endif
-        auto& p = gridPointers[id];
+        auto& p = g_gridPointers[id];
         p.update(r, xy, ppi.pressure);
     }
     else {
         // FIXME - remove the previous Pen gridPointer.  It is being replaced
         // (assuming 1 pen per system)
         std::wcout << "pen id=" << id << " NEW!" << std::endl;
-        gridPointers.emplace(id, GridPointer(id, r, xy, ppi.pressure));
+        g_gridPointers.emplace(id, GridPointer(id, r, xy, ppi.pressure));
     }
 #ifndef NDEBUG
     // seems that ppi.pressure is 0..1024 for pens.
-    std::wcout << "pen id=" << id << " pressure=" << ppi.pressure << std::endl;
+    std::cout << "pen id=" << id << " pressure=" << ppi.pressure << std::endl;
 #endif
     InvalidateRect(hWnd, NULL, FALSE);
 }
+#endif
 
 // ======================================================================
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
-#ifndef NDEBUG
-    bool found = false;
-    for (auto pair : gridPointers) {
-        if (pair.first == id) {
-            found = true;
-        }
-    }
-    assert(found);
-#endif
-    gridPointers.erase(id);
+    g_gridStrument->PointerUp(id);
     InvalidateRect(hWnd, NULL, FALSE);
-    // test midi
-    MidiMessage message;
-    message.data[0] = 0x90;  // MIDI note-on message (requires to data bytes)
-    message.data[1] = 60;    // MIDI note-on message: Key number (60 = middle C)
-    message.data[2] = 0;     // MIDI note-on message: Key velocity (0 = OFF)
-    message.data[3] = 0;     // Unused parameter
-    MMRESULT rc = midiOutShortMsg(midiDevice, message.word);
-    if (rc != MMSYSERR_NOERROR) {
-        printf("Warning: MIDI Output is not open.\n");
-    }
 }
 
+// ======================================================================
 void ScreenToClient(HWND hWnd, RECT* r)
 {
     POINT lt, rb;
@@ -491,4 +422,35 @@ void ScreenToClient(HWND hWnd, RECT* r)
     r->top = lt.y;
     r->right = rb.x;
     r->bottom = rb.y;
+}
+
+// ======================================================================
+MMRESULT StartMidi()
+{
+    // Query number of midi devices
+    // FIXME - add names to menu to select output midi port
+    UINT numMidiDevices = midiOutGetNumDevs();
+    for (unsigned int i = 0; i < numMidiDevices; i++) {
+        MIDIOUTCAPS caps;
+        MMRESULT rc = midiOutGetDevCaps(i, &caps, sizeof(MIDIOUTCAPS));
+        if (rc != MMSYSERR_NOERROR) {
+            std::wcout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
+        }
+        else {
+            std::wcout << "device " << i << " is " << caps.szPname << std::endl;
+        }
+    }
+
+    // Open the MIDI output port
+    int midiport = 1; // FIXME 1 = loopMIDI. add Menu to control this
+    MMRESULT rc = midiOutOpen(&g_midiDevice, midiport, 0, 0, CALLBACK_NULL);
+    return rc;
+}
+
+// ======================================================================
+void StopMidi()
+{
+    // turn off any MIDI notes and close down.
+    midiOutReset(g_midiDevice);
+    midiOutClose(g_midiDevice);
 }
