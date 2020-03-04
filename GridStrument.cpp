@@ -27,7 +27,7 @@ void GridStrument::Resize(D2D1_SIZE_U size)
 #ifndef NDEBUG
     std::wcout << "screen width = " << size.width << ", height = " << size.height << std::endl;
     std::wcout << "screen x = " << num_grids_x_ << ", y = " << num_grids_y_ << std::endl;
-    std::wcout << "max note = " << GridLocToMidiNote(num_grids_x_-1, num_grids_y_-1) << std::endl;
+    std::wcout << "max note = " << GridLocToMidiNote(num_grids_x_ - 1, num_grids_y_ - 1) << std::endl;
 #endif // !NDEBUG
 }
 
@@ -65,7 +65,7 @@ void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
     for (int x = 0; x < num_grids_x_; x++) {
         for (int y = 0; y < num_grids_y_; y++) {
-            int note = GridLocToMidiNote(x,y);
+            int note = GridLocToMidiNote(x, y);
             D2D1_ELLIPSE ellipse = D2D1::Ellipse(
                 D2D1::Point2F(x * GRID_SIZE + GRID_SIZE / 2.f, y * GRID_SIZE + GRID_SIZE / 2.f),
                 GRID_SIZE / 5.f,
@@ -109,6 +109,7 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     grid_channels_.emplace(id, channel);
     int midi_pressure = RectToMidiPressure(rect);
     grid_mod_pitch_.emplace(id, -1);
+    grid_mod_modulation_.emplace(id, -1);
     if (note >= 0) {
         MidiMessage message;
         message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
@@ -152,6 +153,20 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
             printf("Warning: MIDI Output is not open.\n");
         }
     }
+    int mod_modulation = PointChangeToMidiModulation(change);
+    if (mod_modulation != grid_mod_modulation_[id]) {
+        // FIXME - maybe rate limit further?
+        grid_mod_modulation_[id] = mod_modulation;
+        MidiMessage message;
+        message.data[0] = 0xb0 + channel;  // MIDI Control Change
+        message.data[1] = 2;               // controller
+        message.data[2] = mod_modulation;  // value
+        message.data[3] = 0;     // Unused parameter
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
+        if (rc != MMSYSERR_NOERROR) {
+            printf("Warning: MIDI Output is not open.\n");
+        }
+    }
 }
 
 void GridStrument::PointerUp(int id)
@@ -182,6 +197,19 @@ void GridStrument::PointerUp(int id)
             printf("Warning: MIDI Output is not open.\n");
         }
     }
+    {
+        // reset modulation
+        int mod_modulation = 0;
+        MidiMessage message;
+        message.data[0] = 0xb0 + channel;  // MIDI Control Change
+        message.data[1] = 2;               // controller
+        message.data[2] = mod_modulation;  // value
+        message.data[3] = 0;     // Unused parameter
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
+        if (rc != MMSYSERR_NOERROR) {
+            printf("Warning: MIDI Output is not open.\n");
+        }
+    }
 }
 
 int GridStrument::PointToMidiNote(POINT point)
@@ -200,7 +228,7 @@ int GridStrument::PointToMidiNote(POINT point)
 
 int GridStrument::GridLocToMidiNote(int x, int y)
 {
-    int note = 2*12 + x + y * 7;
+    int note = 2 * 12 + x + y * 7;
     if (note > 127) {
         note = 127;
     }
@@ -212,7 +240,7 @@ int GridStrument::RectToMidiPressure(RECT rect)
     int x = (rect.right - rect.left);
     int y = (rect.bottom - rect.top);
     int area = x * y;
-    float ratio = static_cast<float>(area) / (GRID_SIZE/2 * GRID_SIZE/2);
+    float ratio = static_cast<float>(area) / (GRID_SIZE / 2 * GRID_SIZE / 2);
     int pressure = ratio * 70;
     if (pressure > 127) {
         pressure = 127;
@@ -232,4 +260,18 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
         pitch = 0;
     }
     return pitch;
+}
+
+int GridStrument::PointChangeToMidiModulation(POINT delta)
+{
+    int dy = abs(delta.y);
+    float ratio = static_cast<float>(dy) / GRID_SIZE;
+    int modulation = static_cast<int>(0x7f * (dy / (1.0f * GRID_SIZE)));
+    if (modulation > 0x7f) {
+        modulation = 0x7f;
+    }
+    else if (modulation < 0) {
+        modulation = 0;
+    }
+    return modulation;
 }
