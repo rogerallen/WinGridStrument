@@ -1,3 +1,20 @@
+// ======================================================================
+// WinGridStrument - a Windows touchscreen musical instrument
+// Copyright(C) 2020 Roger Allen
+// 
+// This program is free software : you can redistribute itand /or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.If not, see < https://www.gnu.org/licenses/>.
+// ======================================================================
 #include "GridStrument.h"
 #include "GridUtils.h"
 #include <cassert>
@@ -241,7 +258,7 @@ int GridStrument::RectToMidiPressure(RECT rect)
     int y = (rect.bottom - rect.top);
     int area = x * y;
     float ratio = static_cast<float>(area) / (GRID_SIZE / 2 * GRID_SIZE / 2);
-    int pressure = ratio * 70;
+    int pressure = static_cast<int>(ratio * 70);
     if (pressure > 127) {
         pressure = 127;
     }
