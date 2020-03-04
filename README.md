@@ -3,7 +3,7 @@
 A MIDI instrument inspired by the [LinnStrument](http://www.rogerlinndesign.com/linnstrument.html) and 
 [Madrona Labs SoundPlane](http://madronalabs.com/soundplane).
 
-WinGridStrument is a Windows (win32) reimplementation of my (Gridstrument)[https://github.com/rogerallen/GridStrument] 
+WinGridStrument is a Windows (win32) reimplementation of my [Gridstrument](https://github.com/rogerallen/GridStrument) 
 and **requires a touchscreen** to work.  Developed on a Surface Pro 7.
 
 ## Status
