@@ -184,7 +184,7 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
         grid_mod_modulation_[id] = mod_modulation;
         MidiMessage message;
         message.data[0] = 0xb0 + channel;  // MIDI Control Change
-        message.data[1] = 2;               // controller
+        message.data[1] = 1;               // controller
         message.data[2] = mod_modulation;  // value
         message.data[3] = 0;     // Unused parameter
         MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
