@@ -24,6 +24,7 @@
 class GridStrument
 {
     std::map<int, GridPointer> grid_pointers_;
+    // FIXME put all of these into a structure
     std::map<int, int> grid_notes_;
     std::map<int, int> grid_channels_;
     std::map<int, int> grid_mod_pitch_;
@@ -34,6 +35,7 @@ class GridStrument
     ID2D1SolidColorBrush* grid_line_brush_;
     ID2D1SolidColorBrush* c_note_brush_;
     ID2D1SolidColorBrush* note_brush_;
+    ID2D1SolidColorBrush* highlight_brush_;
 public:
     GridStrument(HMIDIOUT midiDevice);
     void Resize(D2D1_SIZE_U size);

@@ -33,6 +33,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     grid_line_brush_ = nullptr;
     c_note_brush_ = nullptr;
     note_brush_ = nullptr;
+    highlight_brush_ = nullptr;
 }
 
 void GridStrument::Resize(D2D1_SIZE_U size)
@@ -43,8 +44,9 @@ void GridStrument::Resize(D2D1_SIZE_U size)
 
 #ifndef NDEBUG
     std::wcout << "screen width = " << size.width << ", height = " << size.height << std::endl;
-    std::wcout << "screen x = " << num_grids_x_ << ", y = " << num_grids_y_ << std::endl;
-    std::wcout << "max note = " << GridLocToMidiNote(num_grids_x_ - 1, num_grids_y_ - 1) << std::endl;
+    std::wcout << "screen columns = " << num_grids_x_ << ", rows = " << num_grids_y_ << std::endl;
+    std::wcout << "min note = " << GridLocToMidiNote(0, num_grids_y_ - 1) << std::endl;
+    std::wcout << "max note = " << GridLocToMidiNote(num_grids_x_ - 1, 0) << std::endl;
 #endif // !NDEBUG
 }
 
@@ -59,6 +61,9 @@ void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
         assert(SUCCEEDED(hr));
         color = D2D1::ColorF(0.f, 0.85f, 0.f);
         hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_brush_);
+        assert(SUCCEEDED(hr));
+        color = D2D1::ColorF(0.85f, 0.85f, 0.f);
+        hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_brush_);
         assert(SUCCEEDED(hr));
     }
 
@@ -88,7 +93,10 @@ void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
                 GRID_SIZE / 5.f,
                 GRID_SIZE / 5.f
             );
-            if (note % 12 == 0) {
+            if (false) { // note == 64) {
+                d2dRenderTarget->FillEllipse(ellipse, highlight_brush_);
+            }
+            else if (note % 12 == 0) {
                 d2dRenderTarget->FillEllipse(ellipse, c_note_brush_);
             }
             else if (((note % 12) == 2) || ((note % 12) == 4) || ((note % 12) == 5) ||
@@ -245,7 +253,12 @@ int GridStrument::PointToMidiNote(POINT point)
 
 int GridStrument::GridLocToMidiNote(int x, int y)
 {
-    int note = 2 * 12 + x + y * 7;
+    // Y-invert so up is higher note
+    // put middle C, 64 in the center
+    int center_x = num_grids_x_ / 2;
+    int center_y = num_grids_y_ / 2;
+    int offset = 64 - (center_x + (num_grids_y_ - 1 - center_y) * 5);
+    int note = offset + x + (num_grids_y_ - 1 - y) * 5;
     if (note > 127) {
         note = 127;
     }
