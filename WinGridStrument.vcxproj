@@ -148,6 +148,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GridMidi.h" />
     <ClInclude Include="GridPointer.h" />
     <ClInclude Include="GridStrument.h" />
     <ClInclude Include="GridUtils.h" />
@@ -156,6 +157,7 @@
     <ClInclude Include="WinGridStrument.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="GridMidi.cpp" />
     <ClCompile Include="GridPointer.cpp" />
     <ClCompile Include="GridStrument.cpp" />
     <ClCompile Include="GridUtils.cpp" />

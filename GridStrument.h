@@ -20,13 +20,14 @@
 #include <mmsystem.h>
 #include <map>
 #include "GridPointer.h"
+#include "GridMidi.h"
 
 class GridStrument
 {
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
-    HMIDIOUT midi_device_;
+    GridMidi* midi_device_;
     ID2D1SolidColorBrush* grid_line_brush_;
     ID2D1SolidColorBrush* c_note_brush_;
     ID2D1SolidColorBrush* note_brush_;

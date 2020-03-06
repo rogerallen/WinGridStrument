@@ -20,17 +20,13 @@
 #include <cassert>
 #include <iostream>
 
-// FIXME add Midi Class
-// type which is both an integer and an array of characters:
-typedef union midimessage { unsigned long word; unsigned char data[4]; } MidiMessage;
-
 static const int GRID_SIZE = 90;
 
 GridStrument::GridStrument(HMIDIOUT midiDevice)
 {
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
-    midi_device_ = midiDevice;
+    midi_device_ = new GridMidi(midiDevice);
     grid_line_brush_ = nullptr;
     c_note_brush_ = nullptr;
     note_brush_ = nullptr;
@@ -138,15 +134,8 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     grid_pointers_[id].modulation_x(-1);
     grid_pointers_[id].modulation_y(-1);
     if (note >= 0) {
-        MidiMessage message;
-        message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
-        message.data[1] = note;  // MIDI note-on message: Key number (60 = middle C)
-        message.data[2] = midi_pressure;   // MIDI note-on message: Key velocity (100 = loud)
-        message.data[3] = 0;     // Unused parameter
-        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-        if (rc != MMSYSERR_NOERROR) {
-            printf("Warning: MIDI Output is not open.\n");
-        }
+        midi_device_->noteOn(channel, note, midi_pressure);
+
     }
 }
 
@@ -170,29 +159,13 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     if (mod_pitch != grid_pointers_[id].modulation_x()) {
         // FIXME - maybe rate limit further?
         grid_pointers_[id].modulation_x(mod_pitch);
-        MidiMessage message;
-        message.data[0] = 0xe0 + channel;  // MIDI Pitch Bend Change
-        message.data[1] = mod_pitch & 0x7f;  // low bits
-        message.data[2] = (mod_pitch >> 7) & 0x7f; // high bits
-        message.data[3] = 0;     // Unused parameter
-        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-        if (rc != MMSYSERR_NOERROR) {
-            printf("Warning: MIDI Output is not open.\n");
-        }
+        midi_device_->pitchBend(channel, mod_pitch);
     }
     int mod_modulation = PointChangeToMidiModulation(change);
     if (mod_modulation != grid_pointers_[id].modulation_y()) {
         // FIXME - maybe rate limit further?
         grid_pointers_[id].modulation_x(mod_modulation);
-        MidiMessage message;
-        message.data[0] = 0xb0 + channel;  // MIDI Control Change
-        message.data[1] = 1;               // controller
-        message.data[2] = mod_modulation;  // value
-        message.data[3] = 0;     // Unused parameter
-        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-        if (rc != MMSYSERR_NOERROR) {
-            printf("Warning: MIDI Output is not open.\n");
-        }
+        midi_device_->controlChange(channel, 1, mod_modulation);
     }
 }
 
@@ -211,29 +184,9 @@ void GridStrument::PointerUp(int id)
     int channel = grid_pointers_[id].channel();
     grid_pointers_.erase(id);
     if (note >= 0) {
-        MidiMessage message;
-        message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
-        message.data[1] = note;  // MIDI note-on message: Key number (60 = middle C)
-        message.data[2] = 0;     // MIDI note-on message: Key velocity (0 = OFF)
-        message.data[3] = 0;     // Unused parameter
-        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-        if (rc != MMSYSERR_NOERROR) {
-            printf("Warning: MIDI Output is not open.\n");
-        }
+        midi_device_->noteOn(channel, note, 0);
     }
-    {
-        // reset modulation
-        int mod_modulation = 0;
-        MidiMessage message;
-        message.data[0] = 0xb0 + channel;  // MIDI Control Change
-        message.data[1] = 2;               // controller
-        message.data[2] = mod_modulation;  // value
-        message.data[3] = 0;     // Unused parameter
-        MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-        if (rc != MMSYSERR_NOERROR) {
-            printf("Warning: MIDI Output is not open.\n");
-        }
-    }
+    midi_device_->controlChange(channel, 1, 0);
 }
 
 int GridStrument::PointToMidiNote(POINT point)
