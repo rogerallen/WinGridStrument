@@ -24,6 +24,12 @@ class GridPointer
     POINT point_;
     int   pressure_;
     POINT starting_point_;
+    // higher-level associated data
+    int note_;
+    int channel_;
+    int modulation_x_;
+    int modulation_y_;
+    int modulation_z_;
 public:
     GridPointer();
     GridPointer(int id, RECT rect, POINT point, int pressure);
@@ -33,5 +39,15 @@ public:
     POINT point() { return point_; };
     int pressure() { return pressure_; };
     POINT pointChange();
+    void note(int note) { note_ = note; }
+    int note() { return note_; }
+    void channel(int channel) { channel_ = channel; }
+    int channel() { return channel_; }
+    void modulation_x(int modulation_x) { modulation_x_ = modulation_x; }
+    int modulation_x() { return modulation_x_; }
+    void modulation_y(int modulation_y) { modulation_y_ = modulation_y; }
+    int modulation_y() { return modulation_y_; }
+    void modulation_z(int modulation_z) { modulation_z_ = modulation_z; }
+    int modulation_z() { return modulation_z_; }
 };
 

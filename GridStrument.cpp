@@ -20,6 +20,7 @@
 #include <cassert>
 #include <iostream>
 
+// FIXME add Midi Class
 // type which is both an integer and an array of characters:
 typedef union midimessage { unsigned long word; unsigned char data[4]; } MidiMessage;
 
@@ -129,12 +130,13 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
 #endif  
     grid_pointers_.emplace(id, GridPointer(id, rect, point, pressure));
     int note = PointToMidiNote(point);
-    grid_notes_.emplace(id, note);
+    grid_pointers_[id].note(note);
     int channel = (id % 10) + 1;
-    grid_channels_.emplace(id, channel);
+    grid_pointers_[id].channel(channel);
     int midi_pressure = RectToMidiPressure(rect);
-    grid_mod_pitch_.emplace(id, -1);
-    grid_mod_modulation_.emplace(id, -1);
+    grid_pointers_[id].modulation_z(midi_pressure);
+    grid_pointers_[id].modulation_x(-1);
+    grid_pointers_[id].modulation_y(-1);
     if (note >= 0) {
         MidiMessage message;
         message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)
@@ -162,12 +164,12 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
 #endif
     auto& p = grid_pointers_[id];
     p.update(rect, point, pressure);
-    int channel = grid_channels_[id];
+    int channel = grid_pointers_[id].channel();
     POINT change = p.pointChange();
     int mod_pitch = PointChangeToMidiPitch(change);
-    if (mod_pitch != grid_mod_pitch_[id]) {
+    if (mod_pitch != grid_pointers_[id].modulation_x()) {
         // FIXME - maybe rate limit further?
-        grid_mod_pitch_[id] = mod_pitch;
+        grid_pointers_[id].modulation_x(mod_pitch);
         MidiMessage message;
         message.data[0] = 0xe0 + channel;  // MIDI Pitch Bend Change
         message.data[1] = mod_pitch & 0x7f;  // low bits
@@ -179,9 +181,9 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
         }
     }
     int mod_modulation = PointChangeToMidiModulation(change);
-    if (mod_modulation != grid_mod_modulation_[id]) {
+    if (mod_modulation != grid_pointers_[id].modulation_y()) {
         // FIXME - maybe rate limit further?
-        grid_mod_modulation_[id] = mod_modulation;
+        grid_pointers_[id].modulation_x(mod_modulation);
         MidiMessage message;
         message.data[0] = 0xb0 + channel;  // MIDI Control Change
         message.data[1] = 1;               // controller
@@ -205,12 +207,9 @@ void GridStrument::PointerUp(int id)
     }
     assert(found);
 #endif
+    int note = grid_pointers_[id].note();
+    int channel = grid_pointers_[id].channel();
     grid_pointers_.erase(id);
-    int note = grid_notes_[id];
-    grid_notes_.erase(id);
-    int channel = grid_channels_[id];
-    grid_channels_.erase(id);
-    grid_mod_pitch_.erase(id);
     if (note >= 0) {
         MidiMessage message;
         message.data[0] = 0x90 + channel;  // MIDI note-on message (requires to data bytes)

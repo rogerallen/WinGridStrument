@@ -24,11 +24,6 @@
 class GridStrument
 {
     std::map<int, GridPointer> grid_pointers_;
-    // FIXME put all of these into a structure
-    std::map<int, int> grid_notes_;
-    std::map<int, int> grid_channels_;
-    std::map<int, int> grid_mod_pitch_;
-    std::map<int, int> grid_mod_modulation_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
     HMIDIOUT midi_device_;
