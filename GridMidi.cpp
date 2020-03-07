@@ -29,7 +29,8 @@ void GridMidi::pitchBend(int channel, int mod_pitch)
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
     if (rc != MMSYSERR_NOERROR) {
-        printf("Warning: MIDI Output is not open.\n");
+        // FIXME - alert dialog box
+        std::wcout << "Warning: MIDI Output is not open.\n";
     }
 }
 
@@ -42,6 +43,7 @@ void GridMidi::controlChange(int channel, int controller, int mod_modulation)
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
     if (rc != MMSYSERR_NOERROR) {
-        printf("Warning: MIDI Output is not open.\n");
+        // FIXME - alert dialog box
+        std::wcout << "Warning: MIDI Output is not open.\n";
     }
 }
