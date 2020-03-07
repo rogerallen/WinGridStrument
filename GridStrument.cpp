@@ -20,10 +20,13 @@
 #include <cassert>
 #include <iostream>
 
-static const int GRID_SIZE = 90;
+static const int GRID_SIZE = 90; // FIXME - prefs
 
 GridStrument::GridStrument(HMIDIOUT midiDevice)
 {
+    // initial preferences
+    pref_guitar_mode_ = true;
+
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
     midi_device_ = new GridMidi(midiDevice);
@@ -214,7 +217,7 @@ int GridStrument::GridLocToMidiNote(int x, int y)
     int offset = 55 - (0 + (num_grids_y_ - 1 - center_y) * 5);
     // might consider guitar-type string change at 59 instead of 60?
     // for the B-string (rather than C) offset
-    if (1) { // FIXME guitar_mode) {
+    if (pref_guitar_mode_) {
         if (num_grids_y_ - 1 - y > center_y) {
             offset -= 1;
         }

@@ -17,6 +17,10 @@ Work-in-progress.  Barely works.
 3. Start app. [FIXME! May need to edit source to connect with LoopMIDI]
 4. Enjoy!
 
+### Preference Controls
+
+- Guitar Mode: change notes vertically by fourths, except for the "B string" and above.  Like a standard guitar tuning.
+
 ## License
 
 Copyright (c) 2020, Roger Allen.

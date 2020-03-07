@@ -43,15 +43,14 @@ WCHAR g_windowClass[MAX_LOADSTRING]; // the main window class name
 ID2D1Factory* g_d2dFactory;
 ID2D1HwndRenderTarget* g_d2dRenderTarget;
 
-// FIXME - add this to README
-// Ah, here is software to create connection from this sw to reaper
-// http://www.tobias-erichsen.de/software/loopmidi.html
-
 // MIDI vars
 HMIDIOUT g_midiDevice;
 
 // Instrument Class Vars
 GridStrument* g_gridStrument;
+
+// FIXME - must be a better way to do this
+bool g_dirty_main_window = false;
 
 // FIXME - DPI Awareness...do we need to be aware?
 // https://docs.microsoft.com/en-us/windows/win32/api/windef/ne-windef-dpi_awareness
@@ -62,7 +61,8 @@ GridStrument* g_gridStrument;
 ATOM             MyRegisterClass(HINSTANCE hInstance);
 BOOL             InitInstance(HINSTANCE, int);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK AboutCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK PrefsCallback(HWND, UINT, WPARAM, LPARAM);
 
 HRESULT CreateGraphicsResources(HWND);
 void DiscardGraphicsResources();
@@ -100,15 +100,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
     g_gridStrument = new GridStrument(g_midiDevice);
 
-
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, g_title, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_WINGRIDSTRUMENT, g_windowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
-    if (!InitInstance(hInstance, nCmdShow))
-    {
+    if (!InitInstance(hInstance, nCmdShow)) {
         return FALSE;
     }
 
@@ -117,10 +115,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
     // Main message loop:
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        if (g_dirty_main_window) {
+            InvalidateRect(msg.hwnd, NULL, FALSE);
+            g_dirty_main_window = false;
+        }
+        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
@@ -176,8 +176,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     HWND hWnd = CreateWindowW(g_windowClass, g_title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
-    if (!hWnd)
-    {
+    if (!hWnd) {
         return FALSE;
     }
 
@@ -244,14 +243,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         } // don't get these (pointer_type == PT_PEN)
     }
     break;
-    case WM_COMMAND:
-    {
+    case WM_COMMAND: {
         int wmId = LOWORD(wParam);
         // Parse the menu selections:
-        switch (wmId)
-        {
+        switch (wmId) {
         case IDM_ABOUT:
-            DialogBox(g_instance, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            DialogBox(g_instance, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, AboutCallback);
+            break;
+        case IDM_PREFS:
+            DialogBox(g_instance, MAKEINTRESOURCE(IDD_PREFS_DIALOG), hWnd, PrefsCallback);
             break;
         case IDM_EXIT:
             DestroyWindow(hWnd);
@@ -285,17 +285,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 // ======================================================================
 // Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK AboutCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
+    switch (message) {
     case WM_INITDIALOG:
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+// ======================================================================
+// Message handler for preferences dialog.
+INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(lParam);
+    switch (message) {
+    case WM_INITDIALOG:
+        CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+            if (LOWORD(wParam) == IDOK) {
+                g_gridStrument->PrefGuitarMode(IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE));
+                g_dirty_main_window = true; // FIXME hack!
+            }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -340,8 +362,7 @@ void OnResize(HWND hWnd) {
 
 void OnPaint(HWND hWnd) {
     HRESULT hr = CreateGraphicsResources(hWnd);
-    if (SUCCEEDED(hr))
-    {
+    if (SUCCEEDED(hr)) {
         PAINTSTRUCT ps;
         BeginPaint(hWnd, &ps);
 

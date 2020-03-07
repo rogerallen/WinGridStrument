@@ -24,6 +24,7 @@
 
 class GridStrument
 {
+    bool pref_guitar_mode_;
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
@@ -39,6 +40,8 @@ public:
     void PointerDown(int id, RECT rect, POINT point, int pressure);
     void PointerUpdate(int id, RECT rect, POINT point, int pressure);
     void PointerUp(int id);
+    bool PrefGuitarMode() { return pref_guitar_mode_; };
+    void PrefGuitarMode(bool mode) { pref_guitar_mode_ = mode; };
 private:
     int PointToMidiNote(POINT point);
     int GridLocToMidiNote(int x, int y);
