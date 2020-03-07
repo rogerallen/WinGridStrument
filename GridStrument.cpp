@@ -206,10 +206,19 @@ int GridStrument::PointToMidiNote(POINT point)
 int GridStrument::GridLocToMidiNote(int x, int y)
 {
     // Y-invert so up is higher note
-    // put middle C, 64 in the center
+    // OLD: put middle C, 64 in the center
+    // NEW: put 55 or guitar's 4th string open G on left in middle
     int center_x = num_grids_x_ / 2;
     int center_y = num_grids_y_ / 2;
-    int offset = 64 - (center_x + (num_grids_y_ - 1 - center_y) * 5);
+    // int offset = 64 - (center_x + (num_grids_y_ - 1 - center_y) * 5);
+    int offset = 55 - (0 + (num_grids_y_ - 1 - center_y) * 5);
+    // might consider guitar-type string change at 59 instead of 60?
+    // for the B-string (rather than C) offset
+    if (1) { // FIXME guitar_mode) {
+        if (num_grids_y_ - 1 - y > center_y) {
+            offset -= 1;
+        }
+    }
     int note = offset + x + (num_grids_y_ - 1 - y) * 5;
     if (note > 127) {
         note = 127;
