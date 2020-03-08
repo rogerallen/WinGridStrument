@@ -26,19 +26,17 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <string>
 
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
 #include <mmsystem.h>  // multimedia functions (such as MIDI) for Windows
-#include <string>
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
 
 // Global Variables:
 HINSTANCE g_instance;                // current instance
-WCHAR g_title[MAX_LOADSTRING];       // The title bar textfP
-WCHAR g_windowClass[MAX_LOADSTRING]; // the main window class name
 
 // D2D vars -- really globals?
 ID2D1Factory* g_d2dFactory;
@@ -59,8 +57,8 @@ bool g_dirty_main_window = false;
 // https://docs.microsoft.com/en-us/windows/win32/direct2d/how-to--size-a-window-properly-for-high-dpi-displays
 
 // Forward declarations of functions included in this code module:
-ATOM             MyRegisterClass(HINSTANCE hInstance);
-BOOL             InitInstance(HINSTANCE, int);
+ATOM             MyRegisterClass(HINSTANCE, WCHAR*);
+BOOL             InitInstance(HINSTANCE, int, WCHAR*, WCHAR*);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutCallback(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK PrefsCallback(HWND, UINT, WPARAM, LPARAM);
@@ -101,13 +99,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
     g_gridStrument = new GridStrument(g_midiDevice);
 
-    // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, g_title, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_WINGRIDSTRUMENT, g_windowClass, MAX_LOADSTRING);
-    MyRegisterClass(hInstance);
+    WCHAR title[MAX_LOADSTRING];       // The title bar textfP
+    WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
+    LoadStringW(hInstance, IDS_APP_TITLE, title, MAX_LOADSTRING);
+    LoadStringW(hInstance, IDC_WINGRIDSTRUMENT, windowClass, MAX_LOADSTRING);
+    MyRegisterClass(hInstance, windowClass);
 
     // Perform application initialization:
-    if (!InitInstance(hInstance, nCmdShow)) {
+    if (!InitInstance(hInstance, nCmdShow, windowClass, title)) {
         return FALSE;
     }
 
@@ -138,7 +137,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 //
 //  PURPOSE: Registers the window class.
 //
-ATOM MyRegisterClass(HINSTANCE hInstance)
+ATOM MyRegisterClass(HINSTANCE hInstance, WCHAR *windowClass)
 {
     WNDCLASSEXW wcex;
 
@@ -153,7 +152,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_WINGRIDSTRUMENT);
-    wcex.lpszClassName = g_windowClass;
+    wcex.lpszClassName = windowClass;
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
     return RegisterClassExW(&wcex);
@@ -170,11 +169,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //        In this function, we save the instance handle in a global variable and
 //        create and display the main program window.
 //
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR *windowClass, WCHAR *title)
 {
     g_instance = hInstance; // Store instance handle in our global variable
 
-    HWND hWnd = CreateWindowW(g_windowClass, g_title, WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowW(windowClass, title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) {
