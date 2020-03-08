@@ -19,6 +19,7 @@
 #include "GridUtils.h"
 #include <cassert>
 #include <iostream>
+#include <set>
 
 static const int GRID_SIZE = 90; // FIXME - prefs
 
@@ -26,6 +27,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
 {
     // initial preferences
     pref_guitar_mode_ = true;
+    pref_pitch_bend_range_ = 12;
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
@@ -53,22 +55,61 @@ void GridStrument::Resize(D2D1_SIZE_U size)
 void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     if (grid_line_brush_ == nullptr) {
-        D2D1_COLOR_F color = D2D1::ColorF(0.75f, 0.75f, 0.75f);
-        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &grid_line_brush_);
-        assert(SUCCEEDED(hr));
-        color = D2D1::ColorF(0.f, 0.f, 0.85f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &c_note_brush_);
-        assert(SUCCEEDED(hr));
-        color = D2D1::ColorF(0.f, 0.85f, 0.f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_brush_);
-        assert(SUCCEEDED(hr));
-        color = D2D1::ColorF(0.85f, 0.85f, 0.f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_brush_);
-        assert(SUCCEEDED(hr));
+        InitBrushes(d2dRenderTarget);
     }
-
     d2dRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+    DrawGrid(d2dRenderTarget);
+    DrawDots(d2dRenderTarget);
+    DrawPointers(d2dRenderTarget);
+}
 
+void GridStrument::DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
+{
+    for (auto p : grid_pointers_) {
+        ID2D1SolidColorBrush* pBrush;
+        float pressure = p.second.pressure() / 512.0f;
+        const D2D1_COLOR_F color = D2D1::ColorF(pressure, 0.0f, pressure, 0.5f);
+        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &pBrush);
+        if (SUCCEEDED(hr)) {
+            RECT rc = p.second.rect();
+            D2D1_RECT_F rcf = D2D1::RectF((float)rc.left, (float)rc.top, (float)rc.right, (float)rc.bottom);
+            d2dRenderTarget->FillRectangle(&rcf, pBrush);
+            SafeRelease(&pBrush);
+        }
+    }
+}
+
+void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
+{
+    std::set<int> active_notes;
+    for (auto p : grid_pointers_) {
+        active_notes.insert(p.second.note());
+    }
+    for (int x = 0; x < num_grids_x_; x++) {
+        for (int y = 0; y < num_grids_y_; y++) {
+            int note = GridLocToMidiNote(x, y);
+            D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+                D2D1::Point2F(x * GRID_SIZE + GRID_SIZE / 2.f, y * GRID_SIZE + GRID_SIZE / 2.f),
+                GRID_SIZE / 5.f,
+                GRID_SIZE / 5.f
+            );
+            if (active_notes.find(note) != active_notes.end()) {
+                d2dRenderTarget->FillEllipse(ellipse, highlight_brush_);
+            }
+            else if (note % 12 == 0) {
+                d2dRenderTarget->FillEllipse(ellipse, c_note_brush_);
+            }
+            else if (((note % 12) == 2) || ((note % 12) == 4) || ((note % 12) == 5) ||
+                ((note % 12) == 7) || ((note % 12) == 9) || ((note % 12) == 11)) {
+                d2dRenderTarget->FillEllipse(ellipse, note_brush_);
+
+            }
+        }
+    }
+}
+
+void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
+{
     for (int x = 0; x < num_grids_x_ * GRID_SIZE + 1; x += GRID_SIZE) {
         d2dRenderTarget->DrawLine(
             D2D1::Point2F(static_cast<FLOAT>(x), 0.0f),
@@ -85,39 +126,22 @@ void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
             1.5f
         );
     }
-    for (int x = 0; x < num_grids_x_; x++) {
-        for (int y = 0; y < num_grids_y_; y++) {
-            int note = GridLocToMidiNote(x, y);
-            D2D1_ELLIPSE ellipse = D2D1::Ellipse(
-                D2D1::Point2F(x * GRID_SIZE + GRID_SIZE / 2.f, y * GRID_SIZE + GRID_SIZE / 2.f),
-                GRID_SIZE / 5.f,
-                GRID_SIZE / 5.f
-            );
-            if (false) { // note == 64) {
-                d2dRenderTarget->FillEllipse(ellipse, highlight_brush_);
-            }
-            else if (note % 12 == 0) {
-                d2dRenderTarget->FillEllipse(ellipse, c_note_brush_);
-            }
-            else if (((note % 12) == 2) || ((note % 12) == 4) || ((note % 12) == 5) ||
-                ((note % 12) == 7) || ((note % 12) == 9) || ((note % 12) == 11)) {
-                d2dRenderTarget->FillEllipse(ellipse, note_brush_);
+}
 
-            }
-        }
-    }
-    for (auto p : grid_pointers_) {
-        ID2D1SolidColorBrush* pBrush;
-        float pressure = p.second.pressure() / 512.0f;
-        const D2D1_COLOR_F color = D2D1::ColorF(pressure, 0.0f, pressure, 0.5f);
-        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &pBrush);
-        if (SUCCEEDED(hr)) {
-            RECT rc = p.second.rect();
-            D2D1_RECT_F rcf = D2D1::RectF((float)rc.left, (float)rc.top, (float)rc.right, (float)rc.bottom);
-            d2dRenderTarget->FillRectangle(&rcf, pBrush);
-            SafeRelease(&pBrush);
-        }
-    }
+void GridStrument::InitBrushes(ID2D1HwndRenderTarget* d2dRenderTarget)
+{
+    D2D1_COLOR_F color = D2D1::ColorF(0.75f, 0.75f, 0.75f);
+    HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &grid_line_brush_);
+    assert(SUCCEEDED(hr));
+    color = D2D1::ColorF(0.f, 0.f, 0.85f);
+    hr = d2dRenderTarget->CreateSolidColorBrush(color, &c_note_brush_);
+    assert(SUCCEEDED(hr));
+    color = D2D1::ColorF(0.f, 0.85f, 0.f);
+    hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_brush_);
+    assert(SUCCEEDED(hr));
+    color = D2D1::ColorF(0.90f, 0.90f, 0.f);
+    hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_brush_);
+    assert(SUCCEEDED(hr));
 }
 
 void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
@@ -211,7 +235,7 @@ int GridStrument::GridLocToMidiNote(int x, int y)
     // Y-invert so up is higher note
     // OLD: put middle C, 64 in the center
     // NEW: put 55 or guitar's 4th string open G on left in middle
-    int center_x = num_grids_x_ / 2;
+    //int center_x = num_grids_x_ / 2;
     int center_y = num_grids_y_ / 2;
     // int offset = 64 - (center_x + (num_grids_y_ - 1 - center_y) * 5);
     int offset = 55 - (0 + (num_grids_y_ - 1 - center_y) * 5);
@@ -245,8 +269,8 @@ int GridStrument::RectToMidiPressure(RECT rect)
 int GridStrument::PointChangeToMidiPitch(POINT delta)
 {
     int dx = delta.x;
-    float ratio = static_cast<float>(dx) / GRID_SIZE;
-    int pitch = 0x2000 + static_cast<int>(0x2000 * (dx / (12.0f * GRID_SIZE)));
+    float range = 1.0f * pref_pitch_bend_range_;
+    int pitch = 0x2000 + static_cast<int>(0x2000 * (dx / (range * GRID_SIZE)));
     if (pitch > 0x3fff) {
         pitch = 0x3fff;
     }
@@ -259,7 +283,6 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
 int GridStrument::PointChangeToMidiModulation(POINT delta)
 {
     int dy = abs(delta.y);
-    float ratio = static_cast<float>(dy) / GRID_SIZE;
     int modulation = static_cast<int>(0x7f * (dy / (1.0f * GRID_SIZE)));
     if (modulation > 0x7f) {
         modulation = 0x7f;

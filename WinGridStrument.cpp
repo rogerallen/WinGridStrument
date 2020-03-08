@@ -30,6 +30,7 @@
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
 #include <mmsystem.h>  // multimedia functions (such as MIDI) for Windows
+#include <string>
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
@@ -90,7 +91,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // setup wcout to save output to a logfile.txt
     std::wofstream logstream("logfile.txt");
-    std::wstreambuf* old_wcout = std::wcout.rdbuf(); // save old buf
+    //std::wstreambuf* old_wcout = std::wcout.rdbuf(); // save old buf
     std::wcout.rdbuf(logstream.rdbuf());                 // redirect std::wcout
 
     MMRESULT rc = StartMidi();
@@ -309,13 +310,22 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     UNREFERENCED_PARAMETER(lParam);
     switch (message) {
     case WM_INITDIALOG:
+    {
         CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
+        int range = g_gridStrument->PrefPitchBendRange();
+        std::wstring range_str = std::to_wstring(range);
+        SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, range_str.c_str());
         return (INT_PTR)TRUE;
-
+    }
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
             if (LOWORD(wParam) == IDOK) {
                 g_gridStrument->PrefGuitarMode(IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE));
+                wchar_t pitch_range_text[32];
+                GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
+                wchar_t* end_ptr;
+                int pitch_range = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
+                g_gridStrument->PrefPitchBendRange(pitch_range);
                 g_dirty_main_window = true; // FIXME hack!
             }
             EndDialog(hDlg, LOWORD(wParam));

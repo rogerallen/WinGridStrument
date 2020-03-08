@@ -18,6 +18,7 @@
 #pragma once
 #include <d2d1.h>
 #include <mmsystem.h>
+#include <algorithm>
 #include <map>
 #include "GridPointer.h"
 #include "GridMidi.h"
@@ -25,6 +26,8 @@
 class GridStrument
 {
     bool pref_guitar_mode_;
+    int pref_pitch_bend_range_;
+
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
@@ -37,11 +40,19 @@ public:
     GridStrument(HMIDIOUT midiDevice);
     void Resize(D2D1_SIZE_U size);
     void Draw(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void InitBrushes(ID2D1HwndRenderTarget* d2dRenderTarget);
     void PointerDown(int id, RECT rect, POINT point, int pressure);
     void PointerUpdate(int id, RECT rect, POINT point, int pressure);
     void PointerUp(int id);
     bool PrefGuitarMode() { return pref_guitar_mode_; };
     void PrefGuitarMode(bool mode) { pref_guitar_mode_ = mode; };
+    int PrefPitchBendRange() { return pref_pitch_bend_range_; };
+    void PrefPitchBendRange(int value) {
+        pref_pitch_bend_range_ = std::clamp(value, 1, 12);
+    }
 private:
     int PointToMidiNote(POINT point);
     int GridLocToMidiNote(int x, int y);
