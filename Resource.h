@@ -14,8 +14,9 @@
 #define IDR_MAINFRAME                   128
 #define IDD_PREFS_DIALOG                129
 #define IDC_GUITAR_MODE                 1000
-#define IDC_EDIT1                       1001
 #define IDC_PITCH_BEND_RANGE            1001
+#define IDC_COMBO1                      1003
+#define IDC_MIDI_DEV_COMBO              1003
 #define ID_FILE_PREFERENCES             32771
 #define IDM_PREFS                       32772
 #define IDC_STATIC                      -1
@@ -27,7 +28,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1002
+#define _APS_NEXT_CONTROL_VALUE         1004
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

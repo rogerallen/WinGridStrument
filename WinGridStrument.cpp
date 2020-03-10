@@ -27,6 +27,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
@@ -34,9 +35,10 @@
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
+enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE };
 
 // Global Variables:
-HINSTANCE g_instance;                // current instance
+HINSTANCE g_instance;
 
 // D2D vars -- really globals?
 ID2D1Factory* g_d2dFactory;
@@ -44,6 +46,8 @@ ID2D1HwndRenderTarget* g_d2dRenderTarget;
 
 // MIDI vars
 HMIDIOUT g_midiDevice;
+int g_midiDeviceIndex;
+std::vector<std::wstring> g_midiDeviceNames;
 
 // Instrument Class Vars
 GridStrument* g_gridStrument;
@@ -76,7 +80,11 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 void ScreenToClient(HWND hWnd, RECT* r);
 
 MMRESULT StartMidi();
+void QueryMidiDevices();
 void StopMidi();
+
+int PrefGetInt(Pref key);
+void PrefSetInt(Pref key, int value);
 
 // ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -92,12 +100,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     //std::wstreambuf* old_wcout = std::wcout.rdbuf(); // save old buf
     std::wcout.rdbuf(logstream.rdbuf());                 // redirect std::wcout
 
+    g_midiDeviceIndex = PrefGetInt(Pref::MIDI_DEVICE_INDEX);
     MMRESULT rc = StartMidi();
     if (rc != MMSYSERR_NOERROR) {
         std::wcout << "Error opening MIDI Output.\n" << std::endl;
         return 1;
     }
+
     g_gridStrument = new GridStrument(g_midiDevice);
+    g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
+    g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -310,6 +322,11 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     switch (message) {
     case WM_INITDIALOG:
     {
+        HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
+        for (auto s : g_midiDeviceNames) {
+            SendMessage(midiDeviceComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
+        }
+        SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)1, (LPARAM)g_midiDeviceIndex);
         CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
         int range = g_gridStrument->PrefPitchBendRange();
         std::wstring range_str = std::to_wstring(range);
@@ -319,12 +336,28 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
             if (LOWORD(wParam) == IDOK) {
-                g_gridStrument->PrefGuitarMode(IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE));
+                bool guitar_mode = IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE);
+                g_gridStrument->PrefGuitarMode(guitar_mode);
+                PrefSetInt(Pref::GUITAR_MODE, guitar_mode);
+                
                 wchar_t pitch_range_text[32];
                 GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
                 wchar_t* end_ptr;
                 int pitch_range = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
                 g_gridStrument->PrefPitchBendRange(pitch_range);
+                PrefSetInt(Pref::PITCH_BEND_RANGE, pitch_range);
+
+                HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
+                int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
+                if (g_midiDeviceIndex != midi_device) {
+                    assert(midi_device < g_midiDeviceNames.size());
+                    // close current, open new midi device
+                    StopMidi();
+                    g_midiDeviceIndex = midi_device;
+                    StartMidi();
+                }
+                PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
+
                 g_dirty_main_window = true; // FIXME hack!
             }
             EndDialog(hDlg, LOWORD(wParam));
@@ -471,10 +504,9 @@ void ScreenToClient(HWND hWnd, RECT* r)
 }
 
 // ======================================================================
-MMRESULT StartMidi()
+void QueryMidiDevices()
 {
-    // Query number of midi devices
-    // FIXME - add names to menu to select output midi port
+    g_midiDeviceNames.clear();
     UINT numMidiDevices = midiOutGetNumDevs();
     for (unsigned int i = 0; i < numMidiDevices; i++) {
         MIDIOUTCAPS caps;
@@ -483,13 +515,23 @@ MMRESULT StartMidi()
             std::wcout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
         }
         else {
+            g_midiDeviceNames.push_back(caps.szPname);
             std::wcout << "device " << i << " is " << caps.szPname << std::endl;
         }
     }
+}
+
+// ======================================================================
+MMRESULT StartMidi()
+{
+    // Query number of midi devices
+    QueryMidiDevices();
 
     // Open the MIDI output port
-    int midiport = 1; // FIXME 1 = loopMIDI. add Menu to control this
-    MMRESULT rc = midiOutOpen(&g_midiDevice, midiport, 0, 0, CALLBACK_NULL);
+    MMRESULT rc = midiOutOpen(&g_midiDevice, g_midiDeviceIndex, 0, 0, CALLBACK_NULL);
+    if (rc != 0) {
+        assert(rc);
+    }
     return rc;
 }
 
@@ -497,6 +539,121 @@ MMRESULT StartMidi()
 void StopMidi()
 {
     // turn off any MIDI notes and close down.
-    midiOutReset(g_midiDevice);
-    midiOutClose(g_midiDevice);
+    MMRESULT rc = midiOutReset(g_midiDevice);
+    if (rc != MMSYSERR_NOERROR) {
+        std::wcout << "ERROR: midiOutReset = " << rc << std::endl;
+        assert(rc);
+    }
+    rc = midiOutClose(g_midiDevice);
+    if (rc != MMSYSERR_NOERROR) {
+        std::wcout << "ERROR: midiOutClose = " << rc << std::endl;
+        assert(rc);
+    }
+}
+
+// ======================================================================
+int PrefGetDefault(Pref key) {
+    int value = -1;
+    switch (key) {
+    case Pref::GUITAR_MODE:
+        value = 0;
+        break;
+    case Pref::MIDI_DEVICE_INDEX:
+        value = 0;
+        break;
+    case Pref::PITCH_BEND_RANGE:
+        value = 12;
+        break;
+    default:
+        std::wcout << "ERROR: unknown Pref = " << int(key) << std::endl;
+        assert(false); // ERROR
+    }
+    return value;
+}
+
+// ======================================================================
+std::wstring PrefGetLabel(Pref key) {
+    std::wstring key_str = L"KEY_NOT_FOUND";
+    // setup default values
+    switch (key) {
+    case Pref::GUITAR_MODE:
+        key_str = L"GUITAR_MODE";
+        break;
+    case Pref::MIDI_DEVICE_INDEX:
+        key_str = L"MIDI_DEVICE_INDEX";
+        break;
+    case Pref::PITCH_BEND_RANGE:
+        key_str = L"PITCH_BEND_RANGE";
+        break;
+    default:
+        std::wcout << "ERROR: unknown Pref = " << int(key) << std::endl;
+        assert(false); // ERROR
+    }
+    return key_str;
+}
+
+// ======================================================================
+int PrefGetInt(Pref key) {
+    int value = PrefGetDefault(key);
+    std::wstring key_str = PrefGetLabel(key);
+
+    HKEY hKey;
+    LONG rs = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, KEY_READ, &hKey);
+    if (rs != ERROR_SUCCESS) {
+        // return default
+        return value;
+    }
+
+    DWORD regValueSize(sizeof(DWORD));
+    DWORD regValue(0);
+    rs = RegQueryValueEx(hKey, key_str.c_str(), 0, NULL,
+        reinterpret_cast<LPBYTE>(&regValue),
+        &regValueSize);
+    if (rs == ERROR_SUCCESS) {
+        // return registry value
+        value = regValue;
+    }
+    rs = RegCloseKey(hKey);
+    if (rs != ERROR_SUCCESS) {
+        std::wcout << "ERROR: RegCloseKey = " << rs << std::endl;
+        assert(false);
+    }
+    return value;
+}
+
+// ======================================================================
+void PrefSetInt(Pref key, int value) {
+    std::wstring key_str = PrefGetLabel(key);
+
+    HKEY hKey;
+    LONG rs = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, KEY_ALL_ACCESS, &hKey);
+    if (rs == ERROR_FILE_NOT_FOUND) {
+        DWORD disposition;
+        rs = RegCreateKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, 0, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, 0, &hKey, &disposition);
+        assert((disposition == REG_CREATED_NEW_KEY) ||
+            (disposition == REG_OPENED_EXISTING_KEY));
+        if (rs != ERROR_SUCCESS) {
+            std::wcout << "ERROR: RegCreateKeyEx = " << rs << std::endl;
+            assert(false); // unable to set value
+            return;
+        }
+    }
+    else if (rs != ERROR_SUCCESS) {
+        std::wcout << "ERROR: RegOpenKeyEx = " << rs << std::endl;
+        assert(false); // unable to set value
+        return;
+    }
+
+    DWORD dValue = static_cast<DWORD>(value);
+    rs = RegSetValueEx(hKey, key_str.c_str(), NULL, REG_DWORD, (const BYTE*)&dValue, sizeof(dValue));
+    if (rs != ERROR_SUCCESS) {
+        std::wcout << "ERROR: RegSetValueEx = " << rs << std::endl;
+        assert(false); // unable to set value
+        return;
+    }
+    rs = RegCloseKey(hKey);
+    if (rs != ERROR_SUCCESS) {
+        std::wcout << "ERROR: RegCloseKey = " << rs << std::endl;
+        assert(false);
+    }
 }
