@@ -8,7 +8,7 @@ and **requires a touchscreen** to work.  Developed on a Surface Pro 7.
 
 ## Status
 
-Work-in-progress.  Barely works.
+Work-in-progress, but should build & work reasonably.  Let me know if it works for you.
 
 ## Usage
 
