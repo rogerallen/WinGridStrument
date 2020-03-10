@@ -26,6 +26,7 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -62,7 +63,7 @@ bool g_dirty_main_window = false;
 
 // Forward declarations of functions included in this code module:
 ATOM             MyRegisterClass(HINSTANCE, WCHAR*);
-BOOL             InitInstance(HINSTANCE, int, WCHAR*, WCHAR*);
+void             InitInstance(HINSTANCE, int, WCHAR*, WCHAR*);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutCallback(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK PrefsCallback(HWND, UINT, WPARAM, LPARAM);
@@ -86,6 +87,9 @@ void StopMidi();
 int PrefGetInt(Pref key);
 void PrefSetInt(Pref key, int value);
 
+void AlertExit(HWND hWnd, LPCTSTR text);
+
+
 // ======================================================================
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
@@ -103,10 +107,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_midiDeviceIndex = PrefGetInt(Pref::MIDI_DEVICE_INDEX);
     MMRESULT rc = StartMidi();
     if (rc != MMSYSERR_NOERROR) {
-        std::wcout << "Error opening MIDI Output.\n" << std::endl;
-        return 1;
+        AlertExit(NULL, L"Error opening MIDI Output.");
     }
-
+    
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
@@ -118,15 +121,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance, windowClass);
 
     // Perform application initialization:
-    if (!InitInstance(hInstance, nCmdShow, windowClass, title)) {
-        return FALSE;
-    }
+    InitInstance(hInstance, nCmdShow, windowClass, title);
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINGRIDSTRUMENT));
 
-    MSG msg;
-
     // Main message loop:
+    MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         if (g_dirty_main_window) {
             InvalidateRect(msg.hwnd, NULL, FALSE);
@@ -181,22 +181,22 @@ ATOM MyRegisterClass(HINSTANCE hInstance, WCHAR *windowClass)
 //        In this function, we save the instance handle in a global variable and
 //        create and display the main program window.
 //
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR *windowClass, WCHAR *title)
+void InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR *windowClass, WCHAR *title)
 {
     g_instance = hInstance; // Store instance handle in our global variable
 
     HWND hWnd = CreateWindowW(windowClass, title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
-    if (!hWnd) {
-        return FALSE;
+    if (hWnd != NULL) {
+        ShowWindow(hWnd, nCmdShow);
+        ShowWindow(hWnd, SW_SHOWMAXIMIZED); // maximize window on startup
+        UpdateWindow(hWnd);
+    }
+    else {
+        AlertExit(NULL, L"CreateWindow Failed.");
     }
 
-    ShowWindow(hWnd, nCmdShow);
-    ShowWindow(hWnd, SW_SHOWMAXIMIZED); // maximize window on startup
-    UpdateWindow(hWnd);
-
-    return TRUE;
 }
 
 // ======================================================================
@@ -512,7 +512,9 @@ void QueryMidiDevices()
         MIDIOUTCAPS caps;
         MMRESULT rc = midiOutGetDevCaps(i, &caps, sizeof(MIDIOUTCAPS));
         if (rc != MMSYSERR_NOERROR) {
-            std::wcout << "Error reading midiOutGetDevCaps for #" << i << std::endl;
+            std::wostringstream text;
+            text << "Reading midiOutGetDevCaps for #" << i << " returned=" << rc;
+            AlertExit(NULL, text.str().c_str());
         }
         else {
             g_midiDeviceNames.push_back(caps.szPname);
@@ -529,8 +531,10 @@ MMRESULT StartMidi()
 
     // Open the MIDI output port
     MMRESULT rc = midiOutOpen(&g_midiDevice, g_midiDeviceIndex, 0, 0, CALLBACK_NULL);
-    if (rc != 0) {
-        assert(rc);
+    if (rc != MMSYSERR_NOERROR) {
+        std::wostringstream text;
+        text << "Unable to midiOutOpen index=" << g_midiDeviceIndex << " returned=" << rc;
+        AlertExit(NULL, text.str().c_str());
     }
     return rc;
 }
@@ -541,13 +545,15 @@ void StopMidi()
     // turn off any MIDI notes and close down.
     MMRESULT rc = midiOutReset(g_midiDevice);
     if (rc != MMSYSERR_NOERROR) {
-        std::wcout << "ERROR: midiOutReset = " << rc << std::endl;
-        assert(rc);
+        std::wostringstream text;
+        text << "Unable to midiOutReset returned=" << rc;
+        AlertExit(NULL, text.str().c_str());
     }
     rc = midiOutClose(g_midiDevice);
     if (rc != MMSYSERR_NOERROR) {
-        std::wcout << "ERROR: midiOutClose = " << rc << std::endl;
-        assert(rc);
+        std::wostringstream text;
+        text << "Unable to midiOutClose returned=" << rc;
+        AlertExit(NULL, text.str().c_str());
     }
 }
 
@@ -565,8 +571,9 @@ int PrefGetDefault(Pref key) {
         value = 12;
         break;
     default:
-        std::wcout << "ERROR: unknown Pref = " << int(key) << std::endl;
-        assert(false); // ERROR
+        std::wostringstream text;
+        text << "Unknown Pref::enum=" << int(key);
+        AlertExit(NULL, text.str().c_str());
     }
     return value;
 }
@@ -586,8 +593,9 @@ std::wstring PrefGetLabel(Pref key) {
         key_str = L"PITCH_BEND_RANGE";
         break;
     default:
-        std::wcout << "ERROR: unknown Pref = " << int(key) << std::endl;
-        assert(false); // ERROR
+        std::wostringstream text;
+        text << "Unknown Pref::enum=" << int(key);
+        AlertExit(NULL, text.str().c_str());
     }
     return key_str;
 }
@@ -600,6 +608,7 @@ int PrefGetInt(Pref key) {
     HKEY hKey;
     LONG rs = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, KEY_READ, &hKey);
     if (rs != ERROR_SUCCESS) {
+        std::wcout << "PrefGetInt key=" << key_str << " default=" << value << std::endl;
         // return default
         return value;
     }
@@ -610,13 +619,15 @@ int PrefGetInt(Pref key) {
         reinterpret_cast<LPBYTE>(&regValue),
         &regValueSize);
     if (rs == ERROR_SUCCESS) {
+        std::wcout << "PrefGetInt key=" << key_str << " value=" << value << std::endl;
         // return registry value
         value = regValue;
     }
     rs = RegCloseKey(hKey);
     if (rs != ERROR_SUCCESS) {
-        std::wcout << "ERROR: RegCloseKey = " << rs << std::endl;
-        assert(false);
+        std::wostringstream text;
+        text << "Unable to RegCloseKey returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
     }
     return value;
 }
@@ -633,27 +644,36 @@ void PrefSetInt(Pref key, int value) {
         assert((disposition == REG_CREATED_NEW_KEY) ||
             (disposition == REG_OPENED_EXISTING_KEY));
         if (rs != ERROR_SUCCESS) {
-            std::wcout << "ERROR: RegCreateKeyEx = " << rs << std::endl;
-            assert(false); // unable to set value
-            return;
+            std::wostringstream text;
+            text << "Unable to RegCreateKeyEx returned=" << rs;
+            AlertExit(NULL, text.str().c_str());
         }
     }
     else if (rs != ERROR_SUCCESS) {
-        std::wcout << "ERROR: RegOpenKeyEx = " << rs << std::endl;
-        assert(false); // unable to set value
-        return;
+        std::wostringstream text;
+        text << "Unable to RegOpenKeyEx returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
     }
 
     DWORD dValue = static_cast<DWORD>(value);
     rs = RegSetValueEx(hKey, key_str.c_str(), NULL, REG_DWORD, (const BYTE*)&dValue, sizeof(dValue));
     if (rs != ERROR_SUCCESS) {
-        std::wcout << "ERROR: RegSetValueEx = " << rs << std::endl;
-        assert(false); // unable to set value
-        return;
+        std::wostringstream text;
+        text << "Unable to RegSetValueEx returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
     }
     rs = RegCloseKey(hKey);
     if (rs != ERROR_SUCCESS) {
-        std::wcout << "ERROR: RegCloseKey = " << rs << std::endl;
-        assert(false);
+        std::wostringstream text;
+        text << "Unable to RegCloseKey returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
     }
+}
+
+void AlertExit(HWND hWnd, LPCTSTR text) {
+    std::wcout << "ERROR: " << text << "\nUnable to recover. Program will close." << std::endl;
+    std::wostringstream text1;
+    text1 << "ERROR: " << text << "\nUnable to recover. Program will close.";
+    MessageBox(hWnd, text1.str().c_str(), NULL, MB_OK | MB_ICONERROR | MB_SYSTEMMODAL);
+    exit(99);
 }
