@@ -38,6 +38,7 @@ class GridStrument
     ID2D1SolidColorBrush* highlight_brush_;
 public:
     GridStrument(HMIDIOUT midiDevice);
+    void MidiDevice(HMIDIOUT midiDevice);
     void Resize(D2D1_SIZE_U size);
     void Draw(ID2D1HwndRenderTarget* d2dRenderTarget);
     void DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);

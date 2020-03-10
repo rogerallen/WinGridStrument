@@ -38,6 +38,11 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     highlight_brush_ = nullptr;
 }
 
+void GridStrument::MidiDevice(HMIDIOUT midiDevice) {
+    free(midi_device_);
+    midi_device_ = new GridMidi(midiDevice);
+}
+
 void GridStrument::Resize(D2D1_SIZE_U size)
 {
     size_ = size;

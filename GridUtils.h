@@ -17,6 +17,10 @@
 // ======================================================================
 #pragma once
 #include <cstddef>
+#include <windows.h>
+#include <iostream>
+#include <sstream>
+
 // ======================================================================
 template <class T> void SafeRelease(T** ppT) {
     if (*ppT) {
@@ -24,3 +28,5 @@ template <class T> void SafeRelease(T** ppT) {
         *ppT = NULL;
     }
 }
+
+void AlertExit(HWND hWnd, LPCTSTR text);

@@ -1,4 +1,5 @@
 #include "GridMidi.h"
+#include "GridUtils.h"
 #include <iostream>
 
 GridMidi::GridMidi(HMIDIOUT midiDevice)
@@ -15,8 +16,11 @@ void GridMidi::noteOn(int channel, int note, int midi_pressure)
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
     if (rc != MMSYSERR_NOERROR) {
-        // FIXME - alert dialog box
-        std::wcout << "Warning: MIDI Output is not open.\n";
+        wchar_t *error = new wchar_t[MAXERRORLENGTH]();
+        midiOutGetErrorText(rc, error, MAXERRORLENGTH);
+        std::wostringstream text;
+        text << "Unable to midiOutShortMsg: " << error;
+        AlertExit(NULL, text.str().c_str());
     }
 }
 
@@ -29,8 +33,11 @@ void GridMidi::pitchBend(int channel, int mod_pitch)
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
     if (rc != MMSYSERR_NOERROR) {
-        // FIXME - alert dialog box
-        std::wcout << "Warning: MIDI Output is not open.\n";
+        wchar_t* error = new wchar_t[MAXERRORLENGTH]();
+        midiOutGetErrorText(rc, error, MAXERRORLENGTH);
+        std::wostringstream text;
+        text << "Unable to midiOutShortMsg: " << error;
+        AlertExit(NULL, text.str().c_str());
     }
 }
 
@@ -43,7 +50,10 @@ void GridMidi::controlChange(int channel, int controller, int mod_modulation)
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
     if (rc != MMSYSERR_NOERROR) {
-        // FIXME - alert dialog box
-        std::wcout << "Warning: MIDI Output is not open.\n";
+        wchar_t* error = new wchar_t[MAXERRORLENGTH]();
+        midiOutGetErrorText(rc, error, MAXERRORLENGTH);
+        std::wostringstream text;
+        text << "Unable to midiOutShortMsg: " << error;
+        AlertExit(NULL, text.str().c_str());
     }
 }

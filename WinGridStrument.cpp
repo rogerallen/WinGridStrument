@@ -355,6 +355,7 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                     StopMidi();
                     g_midiDeviceIndex = midi_device;
                     StartMidi();
+                    g_gridStrument->MidiDevice(g_midiDevice);
                 }
                 PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
 
@@ -668,12 +669,4 @@ void PrefSetInt(Pref key, int value) {
         text << "Unable to RegCloseKey returned=" << rs;
         AlertExit(NULL, text.str().c_str());
     }
-}
-
-void AlertExit(HWND hWnd, LPCTSTR text) {
-    std::wcout << "ERROR: " << text << "\nUnable to recover. Program will close." << std::endl;
-    std::wostringstream text1;
-    text1 << "ERROR: " << text << "\nUnable to recover. Program will close.";
-    MessageBox(hWnd, text1.str().c_str(), NULL, MB_OK | MB_ICONERROR | MB_SYSTEMMODAL);
-    exit(99);
 }
