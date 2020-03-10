@@ -14,12 +14,14 @@ Work-in-progress.  Barely works.
 
 1. Start [loopMIDI](http://www.tobias-erichsen.de/software/loopmidi.html) 
 2. Connect your MIDI software synthesizer to listen to the LoopMIDI port.
-3. Start app. [FIXME! May need to edit source to connect with LoopMIDI]
+3. Start app & set preferences to connect to LoopMIDI port. [[Issue#2](https://github.com/rogerallen/WinGridStrument/issues/2) Need to restart after MIDI device change]
 4. Enjoy!
 
 ### Preference Controls
 
 - Guitar Mode: change notes vertically by fourths, except for the "B string" and above.  Like a standard guitar tuning.
+- Pitch Bend Range: Match this to your MIDI Patch controls.  Typical values are 2 and 12.
+- Midi Output Device: Select the MIDI device you will send to.  Note [Issue#2](https://github.com/rogerallen/WinGridStrument/issues/2)  
 
 ## License
 

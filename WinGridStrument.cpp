@@ -326,7 +326,7 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         for (auto s : g_midiDeviceNames) {
             SendMessage(midiDeviceComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
         }
-        SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)1, (LPARAM)g_midiDeviceIndex);
+        SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
         CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
         int range = g_gridStrument->PrefPitchBendRange();
         std::wstring range_str = std::to_wstring(range);
