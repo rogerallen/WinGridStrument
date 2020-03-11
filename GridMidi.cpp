@@ -45,7 +45,7 @@ void GridMidi::controlChange(int channel, int controller, int mod_modulation)
 {
     MidiMessage message;
     message.data[0] = static_cast<unsigned char>(0xb0 + channel);  // MIDI Control Change
-    message.data[1] = static_cast<unsigned char>(controller);               // controller
+    message.data[1] = static_cast<unsigned char>(controller);      // controller
     message.data[2] = static_cast<unsigned char>(mod_modulation);  // value
     message.data[3] = 0;     // Unused parameter
     MMRESULT rc = midiOutShortMsg(midi_device_, message.word);

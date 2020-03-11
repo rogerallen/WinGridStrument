@@ -36,7 +36,7 @@
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
-enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE };
+enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, MODULATION_CONTROLLER };
 
 // Global Variables:
 HINSTANCE g_instance;
@@ -113,6 +113,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
+    g_gridStrument->PrefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -331,6 +332,9 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         int range = g_gridStrument->PrefPitchBendRange();
         std::wstring range_str = std::to_wstring(range);
         SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, range_str.c_str());
+        int controller = g_gridStrument->PrefModulationController();
+        std::wstring controller_str = std::to_wstring(controller);
+        SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_str.c_str());
         return (INT_PTR)TRUE;
     }
     case WM_COMMAND:
@@ -346,6 +350,12 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 int pitch_range = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
                 g_gridStrument->PrefPitchBendRange(pitch_range);
                 PrefSetInt(Pref::PITCH_BEND_RANGE, pitch_range);
+
+                wchar_t controller_text[32];
+                GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
+                int controller = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
+                g_gridStrument->PrefModulationController(controller);
+                PrefSetInt(Pref::MODULATION_CONTROLLER, controller);
 
                 HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
                 int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -571,6 +581,9 @@ int PrefGetDefault(Pref key) {
     case Pref::PITCH_BEND_RANGE:
         value = 12;
         break;
+    case Pref::MODULATION_CONTROLLER:
+        value = 1;
+        break;
     default:
         std::wostringstream text;
         text << "Unknown Pref::enum=" << int(key);
@@ -592,6 +605,9 @@ std::wstring PrefGetLabel(Pref key) {
         break;
     case Pref::PITCH_BEND_RANGE:
         key_str = L"PITCH_BEND_RANGE";
+        break;
+    case Pref::MODULATION_CONTROLLER:
+        key_str = L"MODULATION_CONTROLLER";
         break;
     default:
         std::wostringstream text;

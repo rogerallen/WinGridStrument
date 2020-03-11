@@ -28,6 +28,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     // initial preferences
     pref_guitar_mode_ = true;
     pref_pitch_bend_range_ = 12;
+    pref_modulation_controller_ = 1; // Mod wheel
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
@@ -197,7 +198,7 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     if (mod_modulation != grid_pointers_[id].modulation_y()) {
         // FIXME - maybe rate limit further?
         grid_pointers_[id].modulation_x(mod_modulation);
-        midi_device_->controlChange(channel, 1, mod_modulation);
+        midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
     }
 }
 
@@ -218,7 +219,7 @@ void GridStrument::PointerUp(int id)
     if (note >= 0) {
         midi_device_->noteOn(channel, note, 0);
     }
-    midi_device_->controlChange(channel, 1, 0);
+    midi_device_->controlChange(channel, pref_modulation_controller_, 0);
 }
 
 int GridStrument::PointToMidiNote(POINT point)

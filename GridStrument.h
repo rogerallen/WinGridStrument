@@ -27,6 +27,7 @@ class GridStrument
 {
     bool pref_guitar_mode_;
     int pref_pitch_bend_range_;
+    int pref_modulation_controller_;
 
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
@@ -53,6 +54,11 @@ public:
     int PrefPitchBendRange() { return pref_pitch_bend_range_; };
     void PrefPitchBendRange(int value) {
         pref_pitch_bend_range_ = std::clamp(value, 1, 12);
+    }
+    int PrefModulationController() { return pref_modulation_controller_; };
+    void PrefModulationController(int value) {
+        // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
+        pref_modulation_controller_ = std::clamp(value, 1, 119);
     }
 private:
     int PointToMidiNote(POINT point);
