@@ -29,10 +29,13 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     pref_guitar_mode_ = true;
     pref_pitch_bend_range_ = 12;
     pref_modulation_controller_ = 1; // Mod wheel
+    pref_midi_channel_min_ = 0;
+    pref_midi_channel_max_ = 10;
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
     midi_device_ = new GridMidi(midiDevice);
+    midi_channel_ = pref_midi_channel_min_;
     grid_line_brush_ = nullptr;
     c_note_brush_ = nullptr;
     note_brush_ = nullptr;
@@ -160,7 +163,8 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     grid_pointers_.emplace(id, GridPointer(id, rect, point, pressure));
     int note = PointToMidiNote(point);
     grid_pointers_[id].note(note);
-    int channel = (id % 10) + 1;
+    int channel = midi_channel_;
+    NextMidiChannel();
     grid_pointers_[id].channel(channel);
     int midi_pressure = RectToMidiPressure(rect);
     grid_pointers_[id].modulation_z(midi_pressure);
@@ -169,6 +173,13 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     if (note >= 0) {
         midi_device_->noteOn(channel, note, midi_pressure);
 
+    }
+}
+
+void GridStrument::NextMidiChannel() {
+    midi_channel_++;
+    if (midi_channel_ > pref_midi_channel_max_) {
+        midi_channel_ = pref_midi_channel_min_;
     }
 }
 

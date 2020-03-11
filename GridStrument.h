@@ -20,6 +20,7 @@
 #include <mmsystem.h>
 #include <algorithm>
 #include <map>
+#include <iostream>
 #include "GridPointer.h"
 #include "GridMidi.h"
 
@@ -28,11 +29,14 @@ class GridStrument
     bool pref_guitar_mode_;
     int pref_pitch_bend_range_;
     int pref_modulation_controller_;
+    int pref_midi_channel_min_, pref_midi_channel_max_;
+
 
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
     int num_grids_x_, num_grids_y_;
     GridMidi* midi_device_;
+    int midi_channel_;
     ID2D1SolidColorBrush* grid_line_brush_;
     ID2D1SolidColorBrush* c_note_brush_;
     ID2D1SolidColorBrush* note_brush_;
@@ -47,6 +51,7 @@ public:
     void DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget);
     void InitBrushes(ID2D1HwndRenderTarget* d2dRenderTarget);
     void PointerDown(int id, RECT rect, POINT point, int pressure);
+    void NextMidiChannel();
     void PointerUpdate(int id, RECT rect, POINT point, int pressure);
     void PointerUp(int id);
     bool PrefGuitarMode() { return pref_guitar_mode_; };
@@ -59,6 +64,16 @@ public:
     void PrefModulationController(int value) {
         // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
         pref_modulation_controller_ = std::clamp(value, 1, 119);
+    }
+    int PrefMidiChannelMin() { return pref_midi_channel_min_; };
+    int PrefMidiChannelMax() { return pref_midi_channel_max_; };
+    void PrefMidiChannelRange(int min, int max) {
+        pref_midi_channel_min_ = std::clamp(min, 0, 15);
+        pref_midi_channel_max_ = std::clamp(max, 0, 15);
+        if (pref_midi_channel_min_ > pref_midi_channel_max_) {
+            std::wcout << "Forcing Midi Channel min == max == " << pref_midi_channel_max_ << std::endl;
+            pref_midi_channel_min_ = pref_midi_channel_max_;
+        }
     }
 private:
     int PointToMidiNote(POINT point);

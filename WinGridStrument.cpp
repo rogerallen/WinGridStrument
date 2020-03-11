@@ -36,7 +36,7 @@
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
-enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, MODULATION_CONTROLLER };
+enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX };
 
 // Global Variables:
 HINSTANCE g_instance;
@@ -114,6 +114,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
     g_gridStrument->PrefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
+    g_gridStrument->PrefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -329,12 +330,23 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         }
         SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
         CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
-        int range = g_gridStrument->PrefPitchBendRange();
-        std::wstring range_str = std::to_wstring(range);
-        SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, range_str.c_str());
-        int controller = g_gridStrument->PrefModulationController();
-        std::wstring controller_str = std::to_wstring(controller);
-        SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_str.c_str());
+
+        int value = g_gridStrument->PrefPitchBendRange();
+        std::wstring tmp_str = std::to_wstring(value);
+        SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, tmp_str.c_str());
+        
+        value = g_gridStrument->PrefModulationController();
+        tmp_str = std::to_wstring(value);
+        SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, tmp_str.c_str());
+        
+        value = g_gridStrument->PrefMidiChannelMin();
+        tmp_str = std::to_wstring(value);
+        SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, tmp_str.c_str());
+
+        value = g_gridStrument->PrefMidiChannelMax();
+        tmp_str = std::to_wstring(value);
+        SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, tmp_str.c_str());
+
         return (INT_PTR)TRUE;
     }
     case WM_COMMAND:
@@ -347,15 +359,26 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 wchar_t pitch_range_text[32];
                 GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
                 wchar_t* end_ptr;
-                int pitch_range = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
-                g_gridStrument->PrefPitchBendRange(pitch_range);
-                PrefSetInt(Pref::PITCH_BEND_RANGE, pitch_range);
+                int value = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
+                g_gridStrument->PrefPitchBendRange(value);
+                PrefSetInt(Pref::PITCH_BEND_RANGE, value);
 
                 wchar_t controller_text[32];
                 GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
-                int controller = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
-                g_gridStrument->PrefModulationController(controller);
-                PrefSetInt(Pref::MODULATION_CONTROLLER, controller);
+                value = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
+                g_gridStrument->PrefModulationController(value);
+                PrefSetInt(Pref::MODULATION_CONTROLLER, value);
+
+                wchar_t midi_channel_min_text[32];
+                GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, midi_channel_min_text, 32);
+                value = static_cast<int>(wcstol(midi_channel_min_text, &end_ptr, 10));
+                PrefSetInt(Pref::MIDI_CHANNEL_MIN, value);
+
+                wchar_t midi_channel_max_text[32];
+                GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, midi_channel_max_text, 32);
+                int value1 = static_cast<int>(wcstol(midi_channel_max_text, &end_ptr, 10));
+                PrefSetInt(Pref::MIDI_CHANNEL_MAX, value1);
+                g_gridStrument->PrefMidiChannelRange(value, value1);
 
                 HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
                 int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -583,6 +606,12 @@ int PrefGetDefault(Pref key) {
         break;
     case Pref::MODULATION_CONTROLLER:
         value = 1;
+        break;    
+    case Pref::MIDI_CHANNEL_MIN:
+        value = 0;
+        break;
+    case Pref::MIDI_CHANNEL_MAX:
+        value = 9;
         break;
     default:
         std::wostringstream text;
@@ -608,6 +637,12 @@ std::wstring PrefGetLabel(Pref key) {
         break;
     case Pref::MODULATION_CONTROLLER:
         key_str = L"MODULATION_CONTROLLER";
+        break;
+    case Pref::MIDI_CHANNEL_MIN:
+        key_str = L"MIDI_CHANNEL_MIN";
+        break;
+    case Pref::MIDI_CHANNEL_MAX:
+        key_str = L"MIDI_CHANNEL_MAX";
         break;
     default:
         std::wostringstream text;
