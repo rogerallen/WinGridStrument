@@ -7,53 +7,40 @@ GridMidi::GridMidi(HMIDIOUT midiDevice)
     midi_device_ = midiDevice;
 }
 
-void GridMidi::noteOn(int channel, int note, int midi_pressure)
-{
-    MidiMessage message;
-    message.data[0] = static_cast<unsigned char>(0x90 + channel);  // MIDI note-on message (requires to data bytes)
-    message.data[1] = static_cast<unsigned char>(note);  // MIDI note-on message: Key number (60 = middle C)
-    message.data[2] = static_cast<unsigned char>(midi_pressure);   // MIDI note-on message: Key velocity (100 = loud)
-    message.data[3] = 0;     // Unused parameter
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
+void checkAlertExit(MMRESULT rc) {
     if (rc != MMSYSERR_NOERROR) {
-        wchar_t *error = new wchar_t[MAXERRORLENGTH]();
+        wchar_t* error = new wchar_t[MAXERRORLENGTH]();
         midiOutGetErrorText(rc, error, MAXERRORLENGTH);
         std::wostringstream text;
         text << "Unable to midiOutShortMsg: " << error;
         AlertExit(NULL, text.str().c_str());
     }
+}
+
+void GridMidi::noteOn(int channel, int note, int midi_pressure)
+{
+    MidiMessage message(MIDI::NOTE_ON + channel, note, midi_pressure);
+    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+    checkAlertExit(rc);
 }
 
 void GridMidi::pitchBend(int channel, int mod_pitch)
 {
-    MidiMessage message;
-    message.data[0] = static_cast<unsigned char>(0xe0 + channel);  // MIDI Pitch Bend Change
-    message.data[1] = static_cast<unsigned char>(mod_pitch & 0x7f);  // low bits
-    message.data[2] = static_cast<unsigned char>((mod_pitch >> 7) & 0x7f); // high bits
-    message.data[3] = 0;     // Unused parameter
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-    if (rc != MMSYSERR_NOERROR) {
-        wchar_t* error = new wchar_t[MAXERRORLENGTH]();
-        midiOutGetErrorText(rc, error, MAXERRORLENGTH);
-        std::wostringstream text;
-        text << "Unable to midiOutShortMsg: " << error;
-        AlertExit(NULL, text.str().c_str());
-    }
+    MidiMessage message(MIDI::PITCH_BEND + channel, mod_pitch & 0x7f, (mod_pitch >> 7) & 0x7f);
+    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+    checkAlertExit(rc);
 }
 
 void GridMidi::controlChange(int channel, int controller, int mod_modulation)
 {
-    MidiMessage message;
-    message.data[0] = static_cast<unsigned char>(0xb0 + channel);  // MIDI Control Change
-    message.data[1] = static_cast<unsigned char>(controller);      // controller
-    message.data[2] = static_cast<unsigned char>(mod_modulation);  // value
-    message.data[3] = 0;     // Unused parameter
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.word);
-    if (rc != MMSYSERR_NOERROR) {
-        wchar_t* error = new wchar_t[MAXERRORLENGTH]();
-        midiOutGetErrorText(rc, error, MAXERRORLENGTH);
-        std::wostringstream text;
-        text << "Unable to midiOutShortMsg: " << error;
-        AlertExit(NULL, text.str().c_str());
-    }
+    MidiMessage message(MIDI::CONTROL_CHANGE + channel, controller, mod_modulation);
+    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+    checkAlertExit(rc);
+}
+
+void GridMidi::polyKeyPressure(int channel, int key, int pressure)
+{
+    MidiMessage message(MIDI::POLY_KEY_PRESSURE + channel, key, pressure);
+    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+    checkAlertExit(rc);
 }

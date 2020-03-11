@@ -195,21 +195,27 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     }
     assert(found);
 #endif
-    auto& p = grid_pointers_[id];
-    p.update(rect, point, pressure);
-    int channel = grid_pointers_[id].channel();
-    POINT change = p.pointChange();
+    auto& cur_ptr = grid_pointers_[id];
+    cur_ptr.update(rect, point, pressure);
+    int channel = cur_ptr.channel();
+    POINT change = cur_ptr.pointChange();
     int mod_pitch = PointChangeToMidiPitch(change);
-    if (mod_pitch != grid_pointers_[id].modulation_x()) {
+    if (mod_pitch != cur_ptr.modulation_x()) {
         // FIXME - maybe rate limit further?
-        grid_pointers_[id].modulation_x(mod_pitch);
+        cur_ptr.modulation_x(mod_pitch);
         midi_device_->pitchBend(channel, mod_pitch);
     }
     int mod_modulation = PointChangeToMidiModulation(change);
-    if (mod_modulation != grid_pointers_[id].modulation_y()) {
+    if (mod_modulation != cur_ptr.modulation_y()) {
         // FIXME - maybe rate limit further?
-        grid_pointers_[id].modulation_x(mod_modulation);
+        cur_ptr.modulation_x(mod_modulation);
         midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
+    }
+    int midi_pressure = RectToMidiPressure(rect);
+    if (midi_pressure != cur_ptr.modulation_z()) {
+        cur_ptr.modulation_z(midi_pressure);
+        int note = cur_ptr.note();
+        midi_device_->polyKeyPressure(channel, note, midi_pressure);
     }
 }
 
