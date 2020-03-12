@@ -19,7 +19,8 @@
 #define IDC_MIDI_DEV_COMBO              1003
 #define IDC_MIDI_CHANNEL_MIN            1005
 #define IDC_MIDI_CHANNEL_MAX            1006
-#define IDC_SYSLINK1                    1007
+#define IDC_MIDI_CHANNEL_MIN2           1007
+#define IDC_GRID_SIZE                   1007
 #define ID_FILE_PREFERENCES             32771
 #define IDM_PREFS                       32772
 #define IDC_STATIC                      -1

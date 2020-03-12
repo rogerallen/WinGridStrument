@@ -36,7 +36,11 @@
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
-enum class Pref { MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX };
+enum class Pref { 
+    MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, 
+    MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX, 
+    GRID_SIZE 
+};
 
 // Global Variables:
 HINSTANCE g_instance;
@@ -115,6 +119,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
     g_gridStrument->PrefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
     g_gridStrument->PrefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
+    g_gridStrument->PrefGridSize(PrefGetInt(Pref::GRID_SIZE));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -347,6 +352,10 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         tmp_str = std::to_wstring(value);
         SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, tmp_str.c_str());
 
+        value = g_gridStrument->PrefGridSize();
+        tmp_str = std::to_wstring(value);
+        SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
+
         return (INT_PTR)TRUE;
     }
     case WM_COMMAND:
@@ -379,6 +388,12 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 int value1 = static_cast<int>(wcstol(midi_channel_max_text, &end_ptr, 10));
                 PrefSetInt(Pref::MIDI_CHANNEL_MAX, value1);
                 g_gridStrument->PrefMidiChannelRange(value, value1);
+
+                wchar_t grid_size_text[32];
+                GetDlgItemText(hDlg, IDC_GRID_SIZE, grid_size_text, 32);
+                value = static_cast<int>(wcstol(grid_size_text, &end_ptr, 10));
+                g_gridStrument->PrefGridSize(value);
+                PrefSetInt(Pref::GRID_SIZE, value);
 
                 HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
                 int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -613,6 +628,9 @@ int PrefGetDefault(Pref key) {
     case Pref::MIDI_CHANNEL_MAX:
         value = 9;
         break;
+    case Pref::GRID_SIZE:
+        value = 90;
+        break;
     default:
         std::wostringstream text;
         text << "Unknown Pref::enum=" << int(key);
@@ -643,6 +661,9 @@ std::wstring PrefGetLabel(Pref key) {
         break;
     case Pref::MIDI_CHANNEL_MAX:
         key_str = L"MIDI_CHANNEL_MAX";
+        break;    
+    case Pref::GRID_SIZE:
+        key_str = L"GRID_SIZE";
         break;
     default:
         std::wostringstream text;

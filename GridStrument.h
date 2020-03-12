@@ -30,7 +30,7 @@ class GridStrument
     int pref_pitch_bend_range_;
     int pref_modulation_controller_;
     int pref_midi_channel_min_, pref_midi_channel_max_;
-
+    int pref_grid_size_;
 
     std::map<int, GridPointer> grid_pointers_;
     D2D1_SIZE_U size_;
@@ -54,25 +54,33 @@ public:
     void NextMidiChannel();
     void PointerUpdate(int id, RECT rect, POINT point, int pressure);
     void PointerUp(int id);
-    bool PrefGuitarMode() { return pref_guitar_mode_; };
-    void PrefGuitarMode(bool mode) { pref_guitar_mode_ = mode; };
-    int PrefPitchBendRange() { return pref_pitch_bend_range_; };
+    bool PrefGuitarMode() { return pref_guitar_mode_; }
+    void PrefGuitarMode(bool mode) { pref_guitar_mode_ = mode; }
+    int PrefPitchBendRange() { return pref_pitch_bend_range_; }
     void PrefPitchBendRange(int value) {
         pref_pitch_bend_range_ = std::clamp(value, 1, 12);
     }
-    int PrefModulationController() { return pref_modulation_controller_; };
+    int PrefModulationController() { return pref_modulation_controller_; }
     void PrefModulationController(int value) {
         // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
         pref_modulation_controller_ = std::clamp(value, 1, 119);
     }
-    int PrefMidiChannelMin() { return pref_midi_channel_min_; };
-    int PrefMidiChannelMax() { return pref_midi_channel_max_; };
+    int PrefMidiChannelMin() { return pref_midi_channel_min_; }
+    int PrefMidiChannelMax() { return pref_midi_channel_max_; }
     void PrefMidiChannelRange(int min, int max) {
         pref_midi_channel_min_ = std::clamp(min, 0, 15);
         pref_midi_channel_max_ = std::clamp(max, 0, 15);
         if (pref_midi_channel_min_ > pref_midi_channel_max_) {
             std::wcout << "Forcing Midi Channel min == max == " << pref_midi_channel_max_ << std::endl;
             pref_midi_channel_min_ = pref_midi_channel_max_;
+        }
+    }
+    int PrefGridSize() { return pref_grid_size_; }
+    void PrefGridSize(int value) {
+        value = std::clamp(value, 40, 400);
+        if (value != pref_grid_size_) {
+            pref_grid_size_ = value;
+            Resize(size_);
         }
     }
 private:

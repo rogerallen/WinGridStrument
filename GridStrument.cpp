@@ -21,16 +21,15 @@
 #include <iostream>
 #include <set>
 
-static const int GRID_SIZE = 90; // FIXME - prefs
-
 GridStrument::GridStrument(HMIDIOUT midiDevice)
 {
     // initial preferences
     pref_guitar_mode_ = true;
     pref_pitch_bend_range_ = 12;
-    pref_modulation_controller_ = 1; // Mod wheel
+    pref_modulation_controller_ = 1;
     pref_midi_channel_min_ = 0;
     pref_midi_channel_max_ = 10;
+    pref_grid_size_ = 90;
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
@@ -50,8 +49,8 @@ void GridStrument::MidiDevice(HMIDIOUT midiDevice) {
 void GridStrument::Resize(D2D1_SIZE_U size)
 {
     size_ = size;
-    num_grids_x_ = (int)(size_.width / GRID_SIZE);
-    num_grids_y_ = (int)(size_.height / GRID_SIZE);
+    num_grids_x_ = (int)(size_.width / pref_grid_size_);
+    num_grids_y_ = (int)(size_.height / pref_grid_size_);
 
 #ifndef NDEBUG
     std::wcout << "screen width = " << size.width << ", height = " << size.height << std::endl;
@@ -98,9 +97,9 @@ void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
         for (int y = 0; y < num_grids_y_; y++) {
             int note = GridLocToMidiNote(x, y);
             D2D1_ELLIPSE ellipse = D2D1::Ellipse(
-                D2D1::Point2F(x * GRID_SIZE + GRID_SIZE / 2.f, y * GRID_SIZE + GRID_SIZE / 2.f),
-                GRID_SIZE / 5.f,
-                GRID_SIZE / 5.f
+                D2D1::Point2F(x * pref_grid_size_ + pref_grid_size_ / 2.f, y * pref_grid_size_ + pref_grid_size_ / 2.f),
+                pref_grid_size_ / 5.f,
+                pref_grid_size_ / 5.f
             );
             if (active_notes.find(note) != active_notes.end()) {
                 d2dRenderTarget->FillEllipse(ellipse, highlight_brush_);
@@ -119,18 +118,18 @@ void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
 
 void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
-    for (int x = 0; x < num_grids_x_ * GRID_SIZE + 1; x += GRID_SIZE) {
+    for (int x = 0; x < num_grids_x_ * pref_grid_size_ + 1; x += pref_grid_size_) {
         d2dRenderTarget->DrawLine(
             D2D1::Point2F(static_cast<FLOAT>(x), 0.0f),
-            D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(num_grids_y_ * GRID_SIZE)),
+            D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(num_grids_y_ * pref_grid_size_)),
             grid_line_brush_,
             1.5f
         );
     }
-    for (int y = 0; y < num_grids_y_ * GRID_SIZE + 1; y += GRID_SIZE) {
+    for (int y = 0; y < num_grids_y_ * pref_grid_size_ + 1; y += pref_grid_size_) {
         d2dRenderTarget->DrawLine(
             D2D1::Point2F(0.0f, static_cast<FLOAT>(y)),
-            D2D1::Point2F(static_cast<FLOAT>(num_grids_x_ * GRID_SIZE), static_cast<FLOAT>(y)),
+            D2D1::Point2F(static_cast<FLOAT>(num_grids_x_ * pref_grid_size_), static_cast<FLOAT>(y)),
             grid_line_brush_,
             1.5f
         );
@@ -241,14 +240,14 @@ void GridStrument::PointerUp(int id)
 
 int GridStrument::PointToMidiNote(POINT point)
 {
-    if (point.x > num_grids_x_* GRID_SIZE) {
+    if (point.x > num_grids_x_* pref_grid_size_) {
         return -1;
     }
-    if (point.y > num_grids_y_* GRID_SIZE) {
+    if (point.y > num_grids_y_* pref_grid_size_) {
         return -1;
     }
-    int x = point.x / GRID_SIZE;
-    int y = point.y / GRID_SIZE;
+    int x = point.x / pref_grid_size_;
+    int y = point.y / pref_grid_size_;
     int note = GridLocToMidiNote(x, y);
     return note;
 }
@@ -281,7 +280,7 @@ int GridStrument::RectToMidiPressure(RECT rect)
     int x = (rect.right - rect.left);
     int y = (rect.bottom - rect.top);
     int area = x * y;
-    float ratio = static_cast<float>(area) / (GRID_SIZE / 2 * GRID_SIZE / 2);
+    float ratio = static_cast<float>(area) / (pref_grid_size_ / 2 * pref_grid_size_ / 2);
     int pressure = static_cast<int>(ratio * 70);
     if (pressure > 127) {
         pressure = 127;
@@ -293,7 +292,7 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
 {
     int dx = delta.x;
     float range = 1.0f * pref_pitch_bend_range_;
-    int pitch = 0x2000 + static_cast<int>(0x2000 * (dx / (range * GRID_SIZE)));
+    int pitch = 0x2000 + static_cast<int>(0x2000 * (dx / (range * pref_grid_size_)));
     if (pitch > 0x3fff) {
         pitch = 0x3fff;
     }
@@ -306,7 +305,7 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
 int GridStrument::PointChangeToMidiModulation(POINT delta)
 {
     int dy = abs(delta.y);
-    int modulation = static_cast<int>(0x7f * (dy / (1.0f * GRID_SIZE)));
+    int modulation = static_cast<int>(0x7f * (dy / (1.0f * pref_grid_size_)));
     if (modulation > 0x7f) {
         modulation = 0x7f;
     }
