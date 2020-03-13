@@ -171,6 +171,7 @@
   <ItemGroup>
     <Image Include="small.ico" />
     <Image Include="WinGridStrument.ico" />
+    <Image Include="WinGridStrumentIconClip.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
