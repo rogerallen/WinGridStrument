@@ -8,6 +8,8 @@ and **requires a touchscreen** to work.  Developed on a Surface Pro 7.
 
 ## Status
 
+[![Build status](https://ci.appveyor.com/api/projects/status/7n24031r405mv2bv?svg=true)](https://ci.appveyor.com/project/rogerallen/wingridstrument)
+
 Work-in-progress, but should build & work reasonably.  Let me know if it works for you.
 
 ## Usage
