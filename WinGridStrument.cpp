@@ -37,9 +37,9 @@
 
 const static int MAX_LOADSTRING = 100;
 enum class Pref { 
-    MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, 
+    MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, PITCH_BEND_MASK,
     MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX, 
-    GRID_SIZE 
+    GRID_SIZE, CHANNEL_PER_ROW_MODE
 };
 
 // Global Variables:
@@ -117,9 +117,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
+    g_gridStrument->PrefPitchBendMask(PrefGetInt(Pref::PITCH_BEND_MASK));
     g_gridStrument->PrefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
     g_gridStrument->PrefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
     g_gridStrument->PrefGridSize(PrefGetInt(Pref::GRID_SIZE));
+    g_gridStrument->PrefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -334,11 +336,17 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             SendMessage(midiDeviceComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
         }
         SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
+
         CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
 
         int value = g_gridStrument->PrefPitchBendRange();
         std::wstring tmp_str = std::to_wstring(value);
         SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, tmp_str.c_str());
+
+        value = g_gridStrument->PrefPitchBendMask();
+        std::wstringstream tmp_ss;
+        tmp_ss << L"0x" << std::hex << value << std::dec;
+        SetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, tmp_ss.str().c_str());
         
         value = g_gridStrument->PrefModulationController();
         tmp_str = std::to_wstring(value);
@@ -356,6 +364,8 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         tmp_str = std::to_wstring(value);
         SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
 
+        CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->PrefChannelPerRowMode());
+
         return (INT_PTR)TRUE;
     }
     case WM_COMMAND:
@@ -371,6 +381,12 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 int value = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
                 g_gridStrument->PrefPitchBendRange(value);
                 PrefSetInt(Pref::PITCH_BEND_RANGE, value);
+
+                wchar_t pitch_mask_text[32];
+                GetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, pitch_mask_text, 32);
+                value = static_cast<int>(wcstol(pitch_mask_text, &end_ptr, 16));
+                g_gridStrument->PrefPitchBendMask(value);
+                PrefSetInt(Pref::PITCH_BEND_MASK, value);
 
                 wchar_t controller_text[32];
                 GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
@@ -394,6 +410,10 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 value = static_cast<int>(wcstol(grid_size_text, &end_ptr, 10));
                 g_gridStrument->PrefGridSize(value);
                 PrefSetInt(Pref::GRID_SIZE, value);
+
+                bool channel_per_row_mode = IsDlgButtonChecked(hDlg, IDC_CHANNEL_PER_ROW_MODE);
+                g_gridStrument->PrefChannelPerRowMode(channel_per_row_mode);
+                PrefSetInt(Pref::CHANNEL_PER_ROW_MODE, channel_per_row_mode);
 
                 HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
                 int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -619,6 +639,9 @@ int PrefGetDefault(Pref key) {
     case Pref::PITCH_BEND_RANGE:
         value = 12;
         break;
+    case Pref::PITCH_BEND_MASK:
+        value = 0x3fff;
+        break;
     case Pref::MODULATION_CONTROLLER:
         value = 1;
         break;    
@@ -630,6 +653,9 @@ int PrefGetDefault(Pref key) {
         break;
     case Pref::GRID_SIZE:
         value = 90;
+        break;
+    case Pref::CHANNEL_PER_ROW_MODE:
+        value = 0;
         break;
     default:
         std::wostringstream text;
@@ -653,6 +679,9 @@ std::wstring PrefGetLabel(Pref key) {
     case Pref::PITCH_BEND_RANGE:
         key_str = L"PITCH_BEND_RANGE";
         break;
+    case Pref::PITCH_BEND_MASK:
+        key_str = L"PITCH_BEND_MASK";
+        break;
     case Pref::MODULATION_CONTROLLER:
         key_str = L"MODULATION_CONTROLLER";
         break;
@@ -664,6 +693,9 @@ std::wstring PrefGetLabel(Pref key) {
         break;    
     case Pref::GRID_SIZE:
         key_str = L"GRID_SIZE";
+        break;
+    case Pref::CHANNEL_PER_ROW_MODE:
+        key_str = L"CHANNEL_PER_ROW_MODE";
         break;
     default:
         std::wostringstream text;

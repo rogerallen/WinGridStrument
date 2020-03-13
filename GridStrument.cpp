@@ -30,15 +30,14 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     pref_midi_channel_min_ = 0;
     pref_midi_channel_max_ = 10;
     pref_grid_size_ = 90;
+    pref_channel_per_row_mode_ = false;
+    pref_pitch_bend_mask_ = 0x3fff;
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
     midi_device_ = new GridMidi(midiDevice);
     midi_channel_ = pref_midi_channel_min_;
-    grid_line_brush_ = nullptr;
-    c_note_brush_ = nullptr;
-    note_brush_ = nullptr;
-    highlight_brush_ = nullptr;
+   
 }
 
 void GridStrument::MidiDevice(HMIDIOUT midiDevice) {
@@ -62,10 +61,13 @@ void GridStrument::Resize(D2D1_SIZE_U size)
 
 void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
-    if (grid_line_brush_ == nullptr) {
-        InitBrushes(d2dRenderTarget);
+    if (!brushes_.initialized) {
+        brushes_.Init(d2dRenderTarget);
     }
     d2dRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+    if (pref_guitar_mode_) {
+        DrawGuitar(d2dRenderTarget);
+    }
     DrawGrid(d2dRenderTarget);
     DrawDots(d2dRenderTarget);
     DrawPointers(d2dRenderTarget);
@@ -102,18 +104,33 @@ void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
                 pref_grid_size_ / 5.f
             );
             if (active_notes.find(note) != active_notes.end()) {
-                d2dRenderTarget->FillEllipse(ellipse, highlight_brush_);
+                d2dRenderTarget->FillEllipse(ellipse, brushes_.highlight_);
             }
             else if (note % 12 == 0) {
-                d2dRenderTarget->FillEllipse(ellipse, c_note_brush_);
+                d2dRenderTarget->FillEllipse(ellipse, brushes_.c_note_);
             }
             else if (((note % 12) == 2) || ((note % 12) == 4) || ((note % 12) == 5) ||
                 ((note % 12) == 7) || ((note % 12) == 9) || ((note % 12) == 11)) {
-                d2dRenderTarget->FillEllipse(ellipse, note_brush_);
+                d2dRenderTarget->FillEllipse(ellipse, brushes_.note_);
 
             }
         }
     }
+}
+
+void GridStrument::DrawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
+{
+    float left, right, top, bottom;
+    left = 0.0f;
+    right = 1.0f * num_grids_x_ * pref_grid_size_;
+    top = 1.0f * (num_grids_y_ / 2 + 4) * pref_grid_size_;
+    bottom = 1.0f * (num_grids_y_ / 2 - 2) * pref_grid_size_;
+    if (num_grids_y_ % 2 == 0) {
+        top -= 1.0f * pref_grid_size_;
+        bottom -= 1.0f * pref_grid_size_;
+    }
+    D2D1_RECT_F rcf = D2D1::RectF(left, top, right, bottom);
+    d2dRenderTarget->FillRectangle(&rcf, brushes_.guitar_);
 }
 
 void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
@@ -122,7 +139,7 @@ void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
         d2dRenderTarget->DrawLine(
             D2D1::Point2F(static_cast<FLOAT>(x), 0.0f),
             D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(num_grids_y_ * pref_grid_size_)),
-            grid_line_brush_,
+            brushes_.grid_line_,
             1.5f
         );
     }
@@ -130,26 +147,10 @@ void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
         d2dRenderTarget->DrawLine(
             D2D1::Point2F(0.0f, static_cast<FLOAT>(y)),
             D2D1::Point2F(static_cast<FLOAT>(num_grids_x_ * pref_grid_size_), static_cast<FLOAT>(y)),
-            grid_line_brush_,
+            brushes_.grid_line_,
             1.5f
         );
     }
-}
-
-void GridStrument::InitBrushes(ID2D1HwndRenderTarget* d2dRenderTarget)
-{
-    D2D1_COLOR_F color = D2D1::ColorF(0.75f, 0.75f, 0.75f);
-    HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &grid_line_brush_);
-    assert(SUCCEEDED(hr));
-    color = D2D1::ColorF(0.f, 0.f, 0.85f);
-    hr = d2dRenderTarget->CreateSolidColorBrush(color, &c_note_brush_);
-    assert(SUCCEEDED(hr));
-    color = D2D1::ColorF(0.f, 0.85f, 0.f);
-    hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_brush_);
-    assert(SUCCEEDED(hr));
-    color = D2D1::ColorF(0.90f, 0.90f, 0.f);
-    hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_brush_);
-    assert(SUCCEEDED(hr));
 }
 
 void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
@@ -162,8 +163,17 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     grid_pointers_.emplace(id, GridPointer(id, rect, point, pressure));
     int note = PointToMidiNote(point);
     grid_pointers_[id].note(note);
+    // assume default midi channel mode
     int channel = midi_channel_;
     NextMidiChannel();
+    // override in the case of per-row-mode
+    if (pref_channel_per_row_mode_) {
+        // use as many channels as you can, given min/max range
+        int row = PointToGridRow(point);
+        channel = row % (pref_midi_channel_max_ + 1 - pref_midi_channel_min_);
+        channel += pref_midi_channel_min_;
+        midi_channel_ = channel;
+    }
     grid_pointers_[id].channel(channel);
     int midi_pressure = RectToMidiPressure(rect);
     grid_pointers_[id].modulation_z(midi_pressure);
@@ -200,13 +210,11 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     POINT change = cur_ptr.pointChange();
     int mod_pitch = PointChangeToMidiPitch(change);
     if (mod_pitch != cur_ptr.modulation_x()) {
-        // FIXME - maybe rate limit further?
         cur_ptr.modulation_x(mod_pitch);
         midi_device_->pitchBend(channel, mod_pitch);
     }
     int mod_modulation = PointChangeToMidiModulation(change);
     if (mod_modulation != cur_ptr.modulation_y()) {
-        // FIXME - maybe rate limit further?
         cur_ptr.modulation_x(mod_modulation);
         midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
     }
@@ -238,40 +246,47 @@ void GridStrument::PointerUp(int id)
     midi_device_->controlChange(channel, pref_modulation_controller_, 0);
 }
 
-int GridStrument::PointToMidiNote(POINT point)
-{
+int GridStrument::PointToGridColumn(POINT point) {
     if (point.x > num_grids_x_* pref_grid_size_) {
         return -1;
     }
+    int x = point.x / pref_grid_size_;
+    return x;
+}
+int GridStrument::PointToGridRow(POINT point) {
     if (point.y > num_grids_y_* pref_grid_size_) {
         return -1;
     }
-    int x = point.x / pref_grid_size_;
     int y = point.y / pref_grid_size_;
+    return y;
+}
+int GridStrument::PointToMidiNote(POINT point)
+{
+    int x = PointToGridColumn(point);
+    int y = PointToGridRow(point);
     int note = GridLocToMidiNote(x, y);
     return note;
 }
 
 int GridStrument::GridLocToMidiNote(int x, int y)
 {
-    // Y-invert so up is higher note
-    // OLD: put middle C, 64 in the center
-    // NEW: put 55 or guitar's 4th string open G on left in middle
-    //int center_x = num_grids_x_ / 2;
+    // Y-Delta is like the X row size in normal array index math
+    // It is fixed at 5 to match going up by musical fourths
+    int Y_DELTA = 5;
+    // Y-invert so up is higher note.  Grid Y ranges from 0..(num-1)
+    y = num_grids_y_ - 1 - y;
+    // put 55 or guitar's 4th string open G on left in middle
     int center_y = num_grids_y_ / 2;
-    // int offset = 64 - (center_x + (num_grids_y_ - 1 - center_y) * 5);
-    int offset = 55 - (0 + (num_grids_y_ - 1 - center_y) * 5);
-    // might consider guitar-type string change at 59 instead of 60?
+    int offset = 55 - (0 + center_y * Y_DELTA);
+    // do guitar-type string change at 59 instead of 60
     // for the B-string (rather than C) offset
     if (pref_guitar_mode_) {
-        if (num_grids_y_ - 1 - y > center_y) {
+        if (y > center_y) {
             offset -= 1;
         }
     }
-    int note = offset + x + (num_grids_y_ - 1 - y) * 5;
-    if (note > 127) {
-        note = 127;
-    }
+    int note = offset + x + y * Y_DELTA;
+    note = std::clamp(note, 0, 127);
     return note;
 }
 
@@ -299,6 +314,8 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
     else if (pitch < 0) {
         pitch = 0;
     }
+    // this can be used to mask off low bits
+    pitch = pitch & pref_pitch_bend_mask_;
     return pitch;
 }
 

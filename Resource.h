@@ -17,10 +17,12 @@
 #define IDC_PITCH_BEND_RANGE            1001
 #define IDC_MODULATION_CONTROLLER       1002
 #define IDC_MIDI_DEV_COMBO              1003
+#define IDC_CHANNEL_PER_ROW_MODE        1004
 #define IDC_MIDI_CHANNEL_MIN            1005
 #define IDC_MIDI_CHANNEL_MAX            1006
-#define IDC_MIDI_CHANNEL_MIN2           1007
 #define IDC_GRID_SIZE                   1007
+#define IDC_PITCH_BEND_RANGE2           1008
+#define IDC_PITCH_BEND_MASK             1008
 #define ID_FILE_PREFERENCES             32771
 #define IDM_PREFS                       32772
 #define IDC_STATIC                      -1
