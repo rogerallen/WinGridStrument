@@ -215,7 +215,7 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     }
     int mod_modulation = PointChangeToMidiModulation(change);
     if (mod_modulation != cur_ptr.modulation_y()) {
-        cur_ptr.modulation_x(mod_modulation);
+        cur_ptr.modulation_y(mod_modulation);
         midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
     }
     int midi_pressure = RectToMidiPressure(rect);
