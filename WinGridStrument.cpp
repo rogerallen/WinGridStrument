@@ -121,13 +121,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     g_gridStrument = new GridStrument(g_midiDevice);
-    g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
-    g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
-    g_gridStrument->PrefPitchBendMask(PrefGetInt(Pref::PITCH_BEND_MASK));
-    g_gridStrument->PrefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
-    g_gridStrument->PrefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
-    g_gridStrument->PrefGridSize(PrefGetInt(Pref::GRID_SIZE));
-    g_gridStrument->PrefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
+    g_gridStrument->prefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
+    g_gridStrument->prefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
+    g_gridStrument->prefPitchBendMask(PrefGetInt(Pref::PITCH_BEND_MASK));
+    g_gridStrument->prefModulationController(PrefGetInt(Pref::MODULATION_CONTROLLER));
+    g_gridStrument->prefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
+    g_gridStrument->prefGridSize(PrefGetInt(Pref::GRID_SIZE));
+    g_gridStrument->prefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -342,34 +342,34 @@ void InitPrefsDialog(const HWND& hDlg)
     }
     SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
 
-    CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
+    CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->prefGuitarMode());
 
-    int value = g_gridStrument->PrefPitchBendRange();
+    int value = g_gridStrument->prefPitchBendRange();
     std::wstring tmp_str = std::to_wstring(value);
     SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, tmp_str.c_str());
 
-    value = g_gridStrument->PrefPitchBendMask();
+    value = g_gridStrument->prefPitchBendMask();
     std::wstringstream tmp_ss;
     tmp_ss << L"0x" << std::hex << value << std::dec;
     SetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, tmp_ss.str().c_str());
 
-    value = g_gridStrument->PrefModulationController();
+    value = g_gridStrument->prefModulationController();
     tmp_str = std::to_wstring(value);
     SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, tmp_str.c_str());
 
-    value = g_gridStrument->PrefMidiChannelMin();
+    value = g_gridStrument->prefMidiChannelMin();
     tmp_str = std::to_wstring(value);
     SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, tmp_str.c_str());
 
-    value = g_gridStrument->PrefMidiChannelMax();
+    value = g_gridStrument->prefMidiChannelMax();
     tmp_str = std::to_wstring(value);
     SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, tmp_str.c_str());
 
-    value = g_gridStrument->PrefGridSize();
+    value = g_gridStrument->prefGridSize();
     tmp_str = std::to_wstring(value);
     SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
 
-    CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->PrefChannelPerRowMode());
+    CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->prefChannelPerRowMode());
 }
 
 // ======================================================================
@@ -379,26 +379,26 @@ void InitPrefsDialog(const HWND& hDlg)
 void OkUpdatePrefsDialog(const HWND& hDlg)
 {
     bool guitar_mode = IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE);
-    g_gridStrument->PrefGuitarMode(guitar_mode);
+    g_gridStrument->prefGuitarMode(guitar_mode);
     PrefSetInt(Pref::GUITAR_MODE, guitar_mode);
 
     wchar_t pitch_range_text[32];
     GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
     wchar_t* end_ptr;
     int value = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
-    g_gridStrument->PrefPitchBendRange(value);
+    g_gridStrument->prefPitchBendRange(value);
     PrefSetInt(Pref::PITCH_BEND_RANGE, value);
 
     wchar_t pitch_mask_text[32];
     GetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, pitch_mask_text, 32);
     value = static_cast<int>(wcstol(pitch_mask_text, &end_ptr, 16));
-    g_gridStrument->PrefPitchBendMask(value);
+    g_gridStrument->prefPitchBendMask(value);
     PrefSetInt(Pref::PITCH_BEND_MASK, value);
 
     wchar_t controller_text[32];
     GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
     value = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
-    g_gridStrument->PrefModulationController(value);
+    g_gridStrument->prefModulationController(value);
     PrefSetInt(Pref::MODULATION_CONTROLLER, value);
 
     wchar_t midi_channel_min_text[32];
@@ -410,16 +410,16 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
     GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, midi_channel_max_text, 32);
     int value1 = static_cast<int>(wcstol(midi_channel_max_text, &end_ptr, 10));
     PrefSetInt(Pref::MIDI_CHANNEL_MAX, value1);
-    g_gridStrument->PrefMidiChannelRange(value, value1);
+    g_gridStrument->prefMidiChannelRange(value, value1);
 
     wchar_t grid_size_text[32];
     GetDlgItemText(hDlg, IDC_GRID_SIZE, grid_size_text, 32);
     value = static_cast<int>(wcstol(grid_size_text, &end_ptr, 10));
-    g_gridStrument->PrefGridSize(value);
+    g_gridStrument->prefGridSize(value);
     PrefSetInt(Pref::GRID_SIZE, value);
 
     bool channel_per_row_mode = IsDlgButtonChecked(hDlg, IDC_CHANNEL_PER_ROW_MODE);
-    g_gridStrument->PrefChannelPerRowMode(channel_per_row_mode);
+    g_gridStrument->prefChannelPerRowMode(channel_per_row_mode);
     PrefSetInt(Pref::CHANNEL_PER_ROW_MODE, channel_per_row_mode);
 
     HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
@@ -430,7 +430,7 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
         StopMidi();
         g_midiDeviceIndex = midi_device;
         StartMidi();
-        g_gridStrument->MidiDevice(g_midiDevice);
+        g_gridStrument->midiDevice(g_midiDevice);
     }
     PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
 
@@ -473,7 +473,7 @@ void OnResize(HWND hWnd) {
     RECT rc;
     GetClientRect(hWnd, &rc);
     D2D1_SIZE_U size = D2D1::SizeU(rc.right, rc.bottom);
-    g_gridStrument->Resize(size);
+    g_gridStrument->resize(size);
     if (g_d2dRenderTarget != NULL) {
         g_d2dRenderTarget->Resize(size);
         InvalidateRect(hWnd, NULL, FALSE);
@@ -491,7 +491,7 @@ void OnPaint(HWND hWnd) {
 
         g_d2dRenderTarget->BeginDraw();
 
-        g_gridStrument->Draw(g_d2dRenderTarget);
+        g_gridStrument->draw(g_d2dRenderTarget);
 
         hr = g_d2dRenderTarget->EndDraw();
         if (FAILED(hr) || hr == D2DERR_RECREATE_TARGET) {
@@ -512,7 +512,7 @@ void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
-    g_gridStrument->PointerDown(id, r, xy, pti.pressure);
+    g_gridStrument->pointerDown(id, r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
@@ -526,7 +526,7 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
     ScreenToClient(hWnd, &r);
-    g_gridStrument->PointerUpdate(id, r, xy, pti.pressure);
+    g_gridStrument->pointerUpdate(id, r, xy, pti.pressure);
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
@@ -572,7 +572,7 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
-    g_gridStrument->PointerUp(id);
+    g_gridStrument->pointerUp(id);
     InvalidateRect(hWnd, NULL, FALSE);
 }
 

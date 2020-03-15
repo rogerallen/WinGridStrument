@@ -21,9 +21,11 @@
 #include <iostream>
 #include <set>
 
+// ======================================================================
+// Main constructor, set defaults and midi output device
 GridStrument::GridStrument(HMIDIOUT midiDevice)
 {
-    // initial preferences
+    // initial preferences.  These get updated by WinGridStrument code
     pref_guitar_mode_ = true;
     pref_pitch_bend_range_ = 12;
     pref_modulation_controller_ = 1;
@@ -40,12 +42,18 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
 
 }
 
-void GridStrument::MidiDevice(HMIDIOUT midiDevice) {
+// ======================================================================
+// update the midi output device
+//
+void GridStrument::midiDevice(HMIDIOUT midiDevice) {
     free(midi_device_);
     midi_device_ = new GridMidi(midiDevice);
 }
 
-void GridStrument::Resize(D2D1_SIZE_U size)
+// ======================================================================
+// resize and adjust the num_grids
+//
+void GridStrument::resize(D2D1_SIZE_U size)
 {
     size_ = size;
     num_grids_x_ = (int)(size_.width / pref_grid_size_);
@@ -54,26 +62,33 @@ void GridStrument::Resize(D2D1_SIZE_U size)
 #ifndef NDEBUG
     std::wcout << "screen width = " << size.width << ", height = " << size.height << std::endl;
     std::wcout << "screen columns = " << num_grids_x_ << ", rows = " << num_grids_y_ << std::endl;
-    std::wcout << "min note = " << GridLocToMidiNote(0, num_grids_y_ - 1) << std::endl;
-    std::wcout << "max note = " << GridLocToMidiNote(num_grids_x_ - 1, 0) << std::endl;
+    std::wcout << "min note = " << gridLocToMidiNote(0, num_grids_y_ - 1) << std::endl;
+    std::wcout << "max note = " << gridLocToMidiNote(num_grids_x_ - 1, 0) << std::endl;
 #endif // !NDEBUG
 }
 
-void GridStrument::Draw(ID2D1HwndRenderTarget* d2dRenderTarget)
+// ======================================================================
+// main drawing routine.  create brushes if necessary & then draw the
+// grid, notes, etc.
+//
+void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
-    if (!brushes_.initialized) {
-        brushes_.Init(d2dRenderTarget);
+    if (!brushes_.initialized_) {
+        brushes_.init(d2dRenderTarget);
     }
     d2dRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
     if (pref_guitar_mode_) {
-        DrawGuitar(d2dRenderTarget);
+        drawGuitar(d2dRenderTarget);
     }
-    DrawGrid(d2dRenderTarget);
-    DrawDots(d2dRenderTarget);
-    DrawPointers(d2dRenderTarget);
+    drawGrid(d2dRenderTarget);
+    drawDots(d2dRenderTarget);
+    drawPointers(d2dRenderTarget);
 }
 
-void GridStrument::DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
+// ======================================================================
+// draw the touch rectangles for each finger
+//
+void GridStrument::drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     for (auto p : grid_pointers_) {
         ID2D1SolidColorBrush* pBrush;
@@ -89,7 +104,11 @@ void GridStrument::DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
 }
 
-void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
+// ======================================================================
+// draw the dots for each note. C gets a special color.
+// Notes that are currently pressed also get a special color.
+//
+void GridStrument::drawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     std::set<int> active_notes;
     for (auto p : grid_pointers_) {
@@ -97,7 +116,7 @@ void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
     for (int x = 0; x < num_grids_x_; x++) {
         for (int y = 0; y < num_grids_y_; y++) {
-            int note = GridLocToMidiNote(x, y);
+            int note = gridLocToMidiNote(x, y);
             D2D1_ELLIPSE ellipse = D2D1::Ellipse(
                 D2D1::Point2F(x * pref_grid_size_ + pref_grid_size_ / 2.f, y * pref_grid_size_ + pref_grid_size_ / 2.f),
                 pref_grid_size_ / 5.f,
@@ -118,7 +137,11 @@ void GridStrument::DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
 }
 
-void GridStrument::DrawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
+// ======================================================================
+// draw a background that highlights the six "guitar string" rows when
+// we are in guitar_mode_.
+//
+void GridStrument::drawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     float left, right, top, bottom;
     left = 0.0f;
@@ -133,7 +156,10 @@ void GridStrument::DrawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
     d2dRenderTarget->FillRectangle(&rcf, brushes_.guitar_);
 }
 
-void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
+// ======================================================================
+// draw the lines making up the grid
+//
+void GridStrument::drawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     for (int x = 0; x < num_grids_x_ * pref_grid_size_ + 1; x += pref_grid_size_) {
         d2dRenderTarget->DrawLine(
@@ -153,7 +179,17 @@ void GridStrument::DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
 }
 
-void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
+// ======================================================================
+// handle the pointerDown event.  We get the ID, touch rectangle, center point
+// and while we do get pressure, it isn't useful and we use the rectangle
+// area for a "pressure"-like value to store as a modulationZ value.
+//
+// Add a GridPointer to the grid_pointer_ dictionary & index with the ID.
+// set all midi values for note, channel & modulationX/Y/Z
+//
+// Finally, if a note is struck, send it to the midi device.
+//
+void GridStrument::pointerDown(int id, RECT rect, POINT point, int pressure)
 {
 #ifndef NDEBUG
     for (auto pair : grid_pointers_) {
@@ -161,38 +197,44 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     }
 #endif  
     grid_pointers_.emplace(id, GridPointer(id, rect, point, pressure));
-    int note = PointToMidiNote(point);
+    int note = pointToMidiNote(point);
     grid_pointers_[id].note(note);
     // assume default midi channel mode
     int channel = midi_channel_;
-    NextMidiChannel();
+    nextMidiChannel();
     // override in the case of per-row-mode
     if (pref_channel_per_row_mode_) {
         // use as many channels as you can, given min/max range
-        int row = PointToGridRow(point);
+        int row = pointToGridRow(point);
         channel = row % (pref_midi_channel_max_ + 1 - pref_midi_channel_min_);
         channel += pref_midi_channel_min_;
         midi_channel_ = channel;
     }
     grid_pointers_[id].channel(channel);
-    int midi_pressure = RectToMidiPressure(rect);
+    int midi_pressure = rectToMidiPressure(rect);
     grid_pointers_[id].modulationZ(midi_pressure);
-    grid_pointers_[id].modulationX(-1);
-    grid_pointers_[id].modulationY(-1);
+    grid_pointers_[id].modulationX(0);
+    grid_pointers_[id].modulationY(0);
     if (note >= 0) {
         midi_device_->noteOn(channel, note, midi_pressure);
-
     }
 }
 
-void GridStrument::NextMidiChannel() {
+// ======================================================================
+// default way to choose next midi channel.
+//
+void GridStrument::nextMidiChannel() {
     midi_channel_++;
     if (midi_channel_ > pref_midi_channel_max_) {
         midi_channel_ = pref_midi_channel_min_;
     }
 }
 
-void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
+// ======================================================================
+// Handle pointer update event.  Update the GridPointer with new 
+// modulationX/Y/Z values and send them to the midi device.
+//
+void GridStrument::pointerUpdate(int id, RECT rect, POINT point, int pressure)
 {
     // NOTE: seems that pressure is always 512 for fingers.
 #ifndef NDEBUG
@@ -208,17 +250,17 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     cur_ptr.update(rect, point, pressure);
     int channel = cur_ptr.channel();
     POINT change = cur_ptr.pointChange();
-    int mod_pitch = PointChangeToMidiPitch(change);
+    int mod_pitch = pointChangeToPitchBend(change);
     if (mod_pitch != cur_ptr.modulationX()) {
         cur_ptr.modulationX(mod_pitch);
         midi_device_->pitchBend(channel, mod_pitch);
     }
-    int mod_modulation = PointChangeToMidiModulation(change);
+    int mod_modulation = pointChangeToMidiModulation(change);
     if (mod_modulation != cur_ptr.modulationY()) {
         cur_ptr.modulationY(mod_modulation);
         midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
     }
-    int midi_pressure = RectToMidiPressure(rect);
+    int midi_pressure = rectToMidiPressure(rect);
     if (midi_pressure != cur_ptr.modulationZ()) {
         cur_ptr.modulationZ(midi_pressure);
         int note = cur_ptr.note();
@@ -226,7 +268,11 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     }
 }
 
-void GridStrument::PointerUp(int id)
+// ======================================================================
+// handle when the finger touch goes away.  Shut everything down and
+// remove it from the grid_pointers_ dictionary.
+//
+void GridStrument::pointerUp(int id)
 {
 #ifndef NDEBUG
     bool found = false;
@@ -246,29 +292,50 @@ void GridStrument::PointerUp(int id)
     midi_device_->controlChange(channel, pref_modulation_controller_, 0);
 }
 
-int GridStrument::PointToGridColumn(POINT point) {
+// ======================================================================
+// convert window point to grid x.  -1 if not in the grid
+//
+int GridStrument::pointToGridColumn(POINT point) {
     if (point.x > num_grids_x_* pref_grid_size_) {
         return -1;
     }
     int x = point.x / pref_grid_size_;
     return x;
 }
-int GridStrument::PointToGridRow(POINT point) {
+
+// ======================================================================
+// convert window point to grid y. -1 if not in the grid
+//
+int GridStrument::pointToGridRow(POINT point) {
     if (point.y > num_grids_y_* pref_grid_size_) {
         return -1;
     }
     int y = point.y / pref_grid_size_;
     return y;
 }
-int GridStrument::PointToMidiNote(POINT point)
+
+// ======================================================================
+// convert window point to a midi note value.  return -1 if not in the grid
+int GridStrument::pointToMidiNote(POINT point)
 {
-    int x = PointToGridColumn(point);
-    int y = PointToGridRow(point);
-    int note = GridLocToMidiNote(x, y);
+    int x = pointToGridColumn(point);
+    if (x < 0) {
+        return -1;
+    }
+    int y = pointToGridRow(point);
+    if (y < 0) {
+        return -1;
+    }
+    int note = gridLocToMidiNote(x, y);
     return note;
 }
 
-int GridStrument::GridLocToMidiNote(int x, int y)
+// ======================================================================
+// map grid location to a midi note.  Handle Y-inversion so higher notes
+// are towards the top.  Also handle guitar_mode_
+// values are clamped to the range [0,127]
+//
+int GridStrument::gridLocToMidiNote(int x, int y)
 {
     // Y-Delta is like the X row size in normal array index math
     // It is fixed at 5 to match going up by musical fourths
@@ -290,7 +357,14 @@ int GridStrument::GridLocToMidiNote(int x, int y)
     return note;
 }
 
-int GridStrument::RectToMidiPressure(RECT rect)
+// ======================================================================
+// A finger's pressure/modulationZ is determined by the size of the
+// area touched.
+//
+// FIXME - review this with midi log and see if it seems "reasonable"
+// may need some sort of "mapping" to adjust this (like sqrt?)
+//
+int GridStrument::rectToMidiPressure(RECT rect)
 {
     int x = (rect.right - rect.left);
     int y = (rect.bottom - rect.top);
@@ -303,7 +377,15 @@ int GridStrument::RectToMidiPressure(RECT rect)
     return pressure;
 }
 
-int GridStrument::PointChangeToMidiPitch(POINT delta)
+// ======================================================================
+// Look at how the deltaX value has changed and convert to a
+// pitch bend range value.  This is centered at 0x2000 and ranges from
+// 0 to 0x3fff.  So, the note can bend down and up.  The pitch_bend_range
+// tells you how many grids you can go before it hits full range.
+//
+// Use mask to remove lower bits.  This can help reduce "noisy" events.
+// 
+int GridStrument::pointChangeToPitchBend(POINT delta)
 {
     int dx = delta.x;
     float range = 1.0f * pref_pitch_bend_range_;
@@ -319,7 +401,13 @@ int GridStrument::PointChangeToMidiPitch(POINT delta)
     return pitch;
 }
 
-int GridStrument::PointChangeToMidiModulation(POINT delta)
+// ======================================================================
+// Look at how the deltaY value has changed and convert that to a 
+// modulation value.  This adjusts from 0-0x7f where 0 is at the center
+// and moving either up or down adjusts the value towards 0x7f.
+// One grid unit up or down will hit full range.
+//
+int GridStrument::pointChangeToMidiModulation(POINT delta)
 {
     int dy = abs(delta.y);
     int modulation = static_cast<int>(0x7f * (dy / (1.0f * pref_grid_size_)));

@@ -25,37 +25,46 @@
 #include "GridPointer.h"
 #include "GridMidi.h"
 
+// ======================================================================
+// helper class for all the brushes.  Have to construct the brushes
+// after we get the render target which isn't ready when GridStrument 
+// is first constructed.
+// 
 struct GridBrushes
 {
-    bool initialized;
-    ID2D1SolidColorBrush* grid_line_;
+    bool initialized_;                // have we constructed the brushes yet?
+    ID2D1SolidColorBrush* grid_line_; 
     ID2D1SolidColorBrush* c_note_;
     ID2D1SolidColorBrush* note_;
     ID2D1SolidColorBrush* highlight_;
     ID2D1SolidColorBrush* guitar_;
     GridBrushes() {
-        initialized = false;
+        initialized_ = false;
         grid_line_ = nullptr;
         c_note_ = nullptr;
         note_ = nullptr;
         highlight_ = nullptr;
         guitar_ = nullptr;
     }
-    void Init(ID2D1HwndRenderTarget* d2dRenderTarget)
+    void init(ID2D1HwndRenderTarget* d2dRenderTarget)
     {
-        initialized = true;
+        initialized_ = true;
         D2D1_COLOR_F color = D2D1::ColorF(0.75f, 0.75f, 0.75f);
         HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &grid_line_);
         assert(SUCCEEDED(hr));
+
         color = D2D1::ColorF(0.f, 0.f, 0.85f);
         hr = d2dRenderTarget->CreateSolidColorBrush(color, &c_note_);
         assert(SUCCEEDED(hr));
+        
         color = D2D1::ColorF(0.f, 0.85f, 0.f);
         hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_);
         assert(SUCCEEDED(hr));
+        
         color = D2D1::ColorF(0.90f, 0.90f, 0.f);
         hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_);
         assert(SUCCEEDED(hr));
+        
         color = D2D1::ColorF(0.50f, 0.50f, 0.40f);
         hr = d2dRenderTarget->CreateSolidColorBrush(color, &guitar_);
         assert(SUCCEEDED(hr));
@@ -64,6 +73,7 @@ struct GridBrushes
 
 class GridStrument
 {
+    // preferences that control how GridStrument works
     bool pref_guitar_mode_;
     int pref_pitch_bend_range_;
     int pref_pitch_bend_mask_;
@@ -72,40 +82,41 @@ class GridStrument
     int pref_grid_size_;
     bool pref_channel_per_row_mode_;
 
+    // all of the current finger touches in one dictionary
     std::map<int, GridPointer> grid_pointers_;
-    D2D1_SIZE_U size_;
-    int num_grids_x_, num_grids_y_;
-    GridMidi* midi_device_;
-    int midi_channel_;
-    GridBrushes brushes_;
+    D2D1_SIZE_U size_;               // size of the window
+    int num_grids_x_, num_grids_y_;  // number of boxes for notes
+    GridMidi* midi_device_;          // the current midi output
+    int midi_channel_;               // next midi channel to use
+    GridBrushes brushes_;            // all of our brushes
 
 public:
     GridStrument(HMIDIOUT midiDevice);
-    void MidiDevice(HMIDIOUT midiDevice);
-    void Resize(D2D1_SIZE_U size);
-    void Draw(ID2D1HwndRenderTarget* d2dRenderTarget);
-    void PointerDown(int id, RECT rect, POINT point, int pressure);
-    void PointerUpdate(int id, RECT rect, POINT point, int pressure);
-    void PointerUp(int id);
+    void midiDevice(HMIDIOUT midiDevice);
+    void resize(D2D1_SIZE_U size);
+    void draw(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void pointerDown(int id, RECT rect, POINT point, int pressure);
+    void pointerUpdate(int id, RECT rect, POINT point, int pressure);
+    void pointerUp(int id);
     // get/set preferences
-    bool PrefGuitarMode() { return pref_guitar_mode_; }
-    void PrefGuitarMode(bool mode) { pref_guitar_mode_ = mode; }
-    int PrefPitchBendRange() { return pref_pitch_bend_range_; }
-    void PrefPitchBendRange(int value) {
+    bool prefGuitarMode() { return pref_guitar_mode_; }
+    void prefGuitarMode(bool mode) { pref_guitar_mode_ = mode; }
+    int prefPitchBendRange() { return pref_pitch_bend_range_; }
+    void prefPitchBendRange(int value) {
         pref_pitch_bend_range_ = std::clamp(value, 1, 12);
     }
-    int PrefPitchBendMask() { return pref_pitch_bend_mask_; }
-    void PrefPitchBendMask(int value) {
+    int prefPitchBendMask() { return pref_pitch_bend_mask_; }
+    void prefPitchBendMask(int value) {
         pref_pitch_bend_mask_ = std::clamp(value, 0x2000, 0x3fff);
     }
-    int PrefModulationController() { return pref_modulation_controller_; }
-    void PrefModulationController(int value) {
+    int prefModulationController() { return pref_modulation_controller_; }
+    void prefModulationController(int value) {
         // https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2
         pref_modulation_controller_ = std::clamp(value, 1, 119);
     }
-    int PrefMidiChannelMin() { return pref_midi_channel_min_; }
-    int PrefMidiChannelMax() { return pref_midi_channel_max_; }
-    void PrefMidiChannelRange(int min, int max) {
+    int prefMidiChannelMin() { return pref_midi_channel_min_; }
+    int prefMidiChannelMax() { return pref_midi_channel_max_; }
+    void prefMidiChannelRange(int min, int max) {
         pref_midi_channel_min_ = std::clamp(min, 0, 15);
         pref_midi_channel_max_ = std::clamp(max, 0, 15);
         if (pref_midi_channel_min_ > pref_midi_channel_max_) {
@@ -113,28 +124,28 @@ public:
             pref_midi_channel_min_ = pref_midi_channel_max_;
         }
     }
-    int PrefGridSize() { return pref_grid_size_; }
-    void PrefGridSize(int value) {
+    int prefGridSize() { return pref_grid_size_; }
+    void prefGridSize(int value) {
         value = std::clamp(value, 40, 400);
         if (value != pref_grid_size_) {
             pref_grid_size_ = value;
-            Resize(size_);
+            resize(size_);
         }
     }
-    bool PrefChannelPerRowMode() { return pref_channel_per_row_mode_; }
-    void PrefChannelPerRowMode(bool mode) { pref_channel_per_row_mode_ = mode; }
+    bool prefChannelPerRowMode() { return pref_channel_per_row_mode_; }
+    void prefChannelPerRowMode(bool mode) { pref_channel_per_row_mode_ = mode; }
 private:
-    void DrawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
-    void DrawDots(ID2D1HwndRenderTarget* d2dRenderTarget);
-    void DrawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget);
-    void DrawGrid(ID2D1HwndRenderTarget* d2dRenderTarget);
-    void NextMidiChannel();
-    int PointToGridColumn(POINT point);
-    int PointToGridRow(POINT point);
-    int PointToMidiNote(POINT point);
-    int GridLocToMidiNote(int x, int y);
-    int RectToMidiPressure(RECT rect);
-    int PointChangeToMidiPitch(POINT change);
-    int PointChangeToMidiModulation(POINT delta);
+    void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void drawDots(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void drawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void drawGrid(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void nextMidiChannel();
+    int pointToGridColumn(POINT point);
+    int pointToGridRow(POINT point);
+    int pointToMidiNote(POINT point);
+    int gridLocToMidiNote(int x, int y);
+    int rectToMidiPressure(RECT rect);
+    int pointChangeToPitchBend(POINT delta);
+    int pointChangeToMidiModulation(POINT delta);
 };
 
