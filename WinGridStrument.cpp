@@ -36,9 +36,9 @@
 #pragma comment(lib, "winmm")
 
 const static int MAX_LOADSTRING = 100;
-enum class Pref { 
+enum class Pref {
     MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, PITCH_BEND_MASK,
-    MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX, 
+    MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX,
     GRID_SIZE, CHANNEL_PER_ROW_MODE
 };
 
@@ -72,6 +72,9 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutCallback(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK PrefsCallback(HWND, UINT, WPARAM, LPARAM);
 
+void InitPrefsDialog(const HWND& hDlg);
+void OkUpdatePrefsDialog(const HWND& hDlg);
+
 HRESULT CreateGraphicsResources(HWND);
 void DiscardGraphicsResources();
 void OnResize(HWND hWnd);
@@ -84,17 +87,20 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti);
 
 void ScreenToClient(HWND hWnd, RECT* r);
 
-MMRESULT StartMidi();
 void QueryMidiDevices();
+MMRESULT StartMidi();
 void StopMidi();
 
+int PrefGetDefault(Pref key);
+std::wstring PrefGetLabel(Pref key);
 int PrefGetInt(Pref key);
 void PrefSetInt(Pref key, int value);
 
 void AlertExit(HWND hWnd, LPCTSTR text);
 
-
 // ======================================================================
+// main windows entry function
+// construct our program from here
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -113,7 +119,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     if (rc != MMSYSERR_NOERROR) {
         AlertExit(NULL, L"Error opening MIDI Output.");
     }
-    
+
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->PrefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->PrefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
@@ -137,7 +143,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // Main message loop:
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
-        if (g_dirty_main_window) {
+        if (g_dirty_main_window) {  // FIXME - this doesn't always work
             InvalidateRect(msg.hwnd, NULL, FALSE);
             g_dirty_main_window = false;
         }
@@ -153,12 +159,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 // ======================================================================
+// Registers the window class.
 //
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
-ATOM MyRegisterClass(HINSTANCE hInstance, WCHAR *windowClass)
+ATOM MyRegisterClass(HINSTANCE hInstance, WCHAR* windowClass)
 {
     WNDCLASSEXW wcex;
 
@@ -180,17 +183,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance, WCHAR *windowClass)
 }
 
 // ======================================================================
+// Saves instance handle and creates main window
+// save the instance handle in a global variable and create and display 
+// the main program window.
 //
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
-void InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR *windowClass, WCHAR *title)
+void InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR* windowClass, WCHAR* title)
 {
     g_instance = hInstance; // Store instance handle in our global variable
 
@@ -209,22 +206,12 @@ void InitInstance(HINSTANCE hInstance, int nCmdShow, WCHAR *windowClass, WCHAR *
 }
 
 // ======================================================================
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE: Processes messages for the main window.
-//
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
+// Processes messages/events for the main window.
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    switch (message)
-    {
-    case WM_POINTERDOWN:
-    {
+    switch (message) {
+    case WM_POINTERDOWN: {
         POINTER_INPUT_TYPE pointer_type;
         GetPointerType(GET_POINTERID_WPARAM(wParam), &pointer_type);
         if (pointer_type == PT_TOUCH) {
@@ -232,10 +219,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerDownHandler(hWnd, pti);
         } // we do not get (pointer_type == PT_PEN) 
+        break;
     }
-    break;
-    case WM_POINTERUPDATE:
-    {
+    case WM_POINTERUPDATE: {
         POINTER_INPUT_TYPE pointer_type;
         GetPointerType(GET_POINTERID_WPARAM(wParam), &pointer_type);
         if (pointer_type == PT_TOUCH) {
@@ -251,10 +237,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             OnPointerUpdateHandler(hWnd, ppi);
         }
 #endif
+        break;
     }
-    break;
-    case WM_POINTERUP:
-    {
+    case WM_POINTERUP: {
         POINTER_INPUT_TYPE pointer_type;
         GetPointerType(GET_POINTERID_WPARAM(wParam), &pointer_type);
         if (pointer_type == PT_TOUCH) {
@@ -262,8 +247,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetPointerTouchInfo(GET_POINTERID_WPARAM(wParam), &pti);
             OnPointerUpHandler(hWnd, pti);
         } // don't get these (pointer_type == PT_PEN)
+        break;
     }
-    break;
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
         // Parse the menu selections:
@@ -280,8 +265,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
+        break;
     }
-    break;
     case WM_SIZE:
         OnResize(hWnd);
         break;
@@ -329,105 +314,14 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 {
     UNREFERENCED_PARAMETER(lParam);
     switch (message) {
-    case WM_INITDIALOG:
-    {
-        HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
-        for (auto s : g_midiDeviceNames) {
-            SendMessage(midiDeviceComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
-        }
-        SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
-
-        CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
-
-        int value = g_gridStrument->PrefPitchBendRange();
-        std::wstring tmp_str = std::to_wstring(value);
-        SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, tmp_str.c_str());
-
-        value = g_gridStrument->PrefPitchBendMask();
-        std::wstringstream tmp_ss;
-        tmp_ss << L"0x" << std::hex << value << std::dec;
-        SetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, tmp_ss.str().c_str());
-        
-        value = g_gridStrument->PrefModulationController();
-        tmp_str = std::to_wstring(value);
-        SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, tmp_str.c_str());
-        
-        value = g_gridStrument->PrefMidiChannelMin();
-        tmp_str = std::to_wstring(value);
-        SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, tmp_str.c_str());
-
-        value = g_gridStrument->PrefMidiChannelMax();
-        tmp_str = std::to_wstring(value);
-        SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, tmp_str.c_str());
-
-        value = g_gridStrument->PrefGridSize();
-        tmp_str = std::to_wstring(value);
-        SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
-
-        CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->PrefChannelPerRowMode());
-
+    case WM_INITDIALOG: {
+        InitPrefsDialog(hDlg);
         return (INT_PTR)TRUE;
     }
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
             if (LOWORD(wParam) == IDOK) {
-                bool guitar_mode = IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE);
-                g_gridStrument->PrefGuitarMode(guitar_mode);
-                PrefSetInt(Pref::GUITAR_MODE, guitar_mode);
-                
-                wchar_t pitch_range_text[32];
-                GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
-                wchar_t* end_ptr;
-                int value = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
-                g_gridStrument->PrefPitchBendRange(value);
-                PrefSetInt(Pref::PITCH_BEND_RANGE, value);
-
-                wchar_t pitch_mask_text[32];
-                GetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, pitch_mask_text, 32);
-                value = static_cast<int>(wcstol(pitch_mask_text, &end_ptr, 16));
-                g_gridStrument->PrefPitchBendMask(value);
-                PrefSetInt(Pref::PITCH_BEND_MASK, value);
-
-                wchar_t controller_text[32];
-                GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
-                value = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
-                g_gridStrument->PrefModulationController(value);
-                PrefSetInt(Pref::MODULATION_CONTROLLER, value);
-
-                wchar_t midi_channel_min_text[32];
-                GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, midi_channel_min_text, 32);
-                value = static_cast<int>(wcstol(midi_channel_min_text, &end_ptr, 10));
-                PrefSetInt(Pref::MIDI_CHANNEL_MIN, value);
-
-                wchar_t midi_channel_max_text[32];
-                GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, midi_channel_max_text, 32);
-                int value1 = static_cast<int>(wcstol(midi_channel_max_text, &end_ptr, 10));
-                PrefSetInt(Pref::MIDI_CHANNEL_MAX, value1);
-                g_gridStrument->PrefMidiChannelRange(value, value1);
-
-                wchar_t grid_size_text[32];
-                GetDlgItemText(hDlg, IDC_GRID_SIZE, grid_size_text, 32);
-                value = static_cast<int>(wcstol(grid_size_text, &end_ptr, 10));
-                g_gridStrument->PrefGridSize(value);
-                PrefSetInt(Pref::GRID_SIZE, value);
-
-                bool channel_per_row_mode = IsDlgButtonChecked(hDlg, IDC_CHANNEL_PER_ROW_MODE);
-                g_gridStrument->PrefChannelPerRowMode(channel_per_row_mode);
-                PrefSetInt(Pref::CHANNEL_PER_ROW_MODE, channel_per_row_mode);
-
-                HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
-                int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
-                if (g_midiDeviceIndex != midi_device) {
-                    assert(midi_device < g_midiDeviceNames.size());
-                    // close current, open new midi device
-                    StopMidi();
-                    g_midiDeviceIndex = midi_device;
-                    StartMidi();
-                    g_gridStrument->MidiDevice(g_midiDevice);
-                }
-                PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
-
-                g_dirty_main_window = true; // FIXME hack!
+                OkUpdatePrefsDialog(hDlg);
             }
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
@@ -438,6 +332,114 @@ INT_PTR CALLBACK PrefsCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 }
 
 // ======================================================================
+// Initialize the dialog from actual values in pref variables
+//
+void InitPrefsDialog(const HWND& hDlg)
+{
+    HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
+    for (auto s : g_midiDeviceNames) {
+        SendMessage(midiDeviceComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
+    }
+    SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
+
+    CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->PrefGuitarMode());
+
+    int value = g_gridStrument->PrefPitchBendRange();
+    std::wstring tmp_str = std::to_wstring(value);
+    SetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, tmp_str.c_str());
+
+    value = g_gridStrument->PrefPitchBendMask();
+    std::wstringstream tmp_ss;
+    tmp_ss << L"0x" << std::hex << value << std::dec;
+    SetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, tmp_ss.str().c_str());
+
+    value = g_gridStrument->PrefModulationController();
+    tmp_str = std::to_wstring(value);
+    SetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, tmp_str.c_str());
+
+    value = g_gridStrument->PrefMidiChannelMin();
+    tmp_str = std::to_wstring(value);
+    SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, tmp_str.c_str());
+
+    value = g_gridStrument->PrefMidiChannelMax();
+    tmp_str = std::to_wstring(value);
+    SetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, tmp_str.c_str());
+
+    value = g_gridStrument->PrefGridSize();
+    tmp_str = std::to_wstring(value);
+    SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
+
+    CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->PrefChannelPerRowMode());
+}
+
+// ======================================================================
+// after user says "Ok", take the values from the prefs dialog and 
+// store them in actual pref variables
+//
+void OkUpdatePrefsDialog(const HWND& hDlg)
+{
+    bool guitar_mode = IsDlgButtonChecked(hDlg, IDC_GUITAR_MODE);
+    g_gridStrument->PrefGuitarMode(guitar_mode);
+    PrefSetInt(Pref::GUITAR_MODE, guitar_mode);
+
+    wchar_t pitch_range_text[32];
+    GetDlgItemText(hDlg, IDC_PITCH_BEND_RANGE, pitch_range_text, 32);
+    wchar_t* end_ptr;
+    int value = static_cast<int>(wcstol(pitch_range_text, &end_ptr, 10));
+    g_gridStrument->PrefPitchBendRange(value);
+    PrefSetInt(Pref::PITCH_BEND_RANGE, value);
+
+    wchar_t pitch_mask_text[32];
+    GetDlgItemText(hDlg, IDC_PITCH_BEND_MASK, pitch_mask_text, 32);
+    value = static_cast<int>(wcstol(pitch_mask_text, &end_ptr, 16));
+    g_gridStrument->PrefPitchBendMask(value);
+    PrefSetInt(Pref::PITCH_BEND_MASK, value);
+
+    wchar_t controller_text[32];
+    GetDlgItemText(hDlg, IDC_MODULATION_CONTROLLER, controller_text, 32);
+    value = static_cast<int>(wcstol(controller_text, &end_ptr, 10));
+    g_gridStrument->PrefModulationController(value);
+    PrefSetInt(Pref::MODULATION_CONTROLLER, value);
+
+    wchar_t midi_channel_min_text[32];
+    GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MIN, midi_channel_min_text, 32);
+    value = static_cast<int>(wcstol(midi_channel_min_text, &end_ptr, 10));
+    PrefSetInt(Pref::MIDI_CHANNEL_MIN, value);
+
+    wchar_t midi_channel_max_text[32];
+    GetDlgItemText(hDlg, IDC_MIDI_CHANNEL_MAX, midi_channel_max_text, 32);
+    int value1 = static_cast<int>(wcstol(midi_channel_max_text, &end_ptr, 10));
+    PrefSetInt(Pref::MIDI_CHANNEL_MAX, value1);
+    g_gridStrument->PrefMidiChannelRange(value, value1);
+
+    wchar_t grid_size_text[32];
+    GetDlgItemText(hDlg, IDC_GRID_SIZE, grid_size_text, 32);
+    value = static_cast<int>(wcstol(grid_size_text, &end_ptr, 10));
+    g_gridStrument->PrefGridSize(value);
+    PrefSetInt(Pref::GRID_SIZE, value);
+
+    bool channel_per_row_mode = IsDlgButtonChecked(hDlg, IDC_CHANNEL_PER_ROW_MODE);
+    g_gridStrument->PrefChannelPerRowMode(channel_per_row_mode);
+    PrefSetInt(Pref::CHANNEL_PER_ROW_MODE, channel_per_row_mode);
+
+    HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
+    int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
+    if (g_midiDeviceIndex != midi_device) {
+        assert(midi_device < g_midiDeviceNames.size());
+        // close current, open new midi device
+        StopMidi();
+        g_midiDeviceIndex = midi_device;
+        StartMidi();
+        g_gridStrument->MidiDevice(g_midiDevice);
+    }
+    PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
+
+    g_dirty_main_window = true; // FIXME hack!
+}
+
+// ======================================================================
+// create g_d2dRenderTarget
+//
 HRESULT CreateGraphicsResources(HWND hWnd)
 {
     HRESULT hr = S_OK;
@@ -455,11 +457,18 @@ HRESULT CreateGraphicsResources(HWND hWnd)
     }
     return hr;
 }
+
+// ======================================================================
+// release g_d2dRenderTarget
+//
 void DiscardGraphicsResources()
 {
     SafeRelease(&g_d2dRenderTarget);
 }
 
+// ======================================================================
+// resize window, so adjust the gridStrument
+//
 void OnResize(HWND hWnd) {
     RECT rc;
     GetClientRect(hWnd, &rc);
@@ -471,6 +480,9 @@ void OnResize(HWND hWnd) {
     }
 }
 
+// ======================================================================
+// draw the gridStrument
+//
 void OnPaint(HWND hWnd) {
     HRESULT hr = CreateGraphicsResources(hWnd);
     if (SUCCEEDED(hr)) {
@@ -490,9 +502,12 @@ void OnPaint(HWND hWnd) {
 }
 
 // ======================================================================
+// user's finger touched screen for first time.  Gather
+// the id, location, contact rectangle & pressure and tell gridStrument.
+//
 void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
-    int id = pti.pointerInfo.pointerId;  
+    int id = pti.pointerInfo.pointerId;
     POINT xy = pti.pointerInfo.ptPixelLocation;
     RECT r = pti.rcContact;
     ScreenToClient(hWnd, &xy);
@@ -502,6 +517,8 @@ void OnPointerDownHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 }
 
 // ======================================================================
+// user's finger has moved/updated.  Gather info & tell gridStrument.
+//
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
@@ -513,6 +530,7 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
+// historical code to handle pen (not finger) events.  Not using for now
 #if 0
 void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
 {
@@ -549,6 +567,8 @@ void OnPointerUpdateHandler(HWND hWnd, const POINTER_PEN_INFO& ppi)
 #endif
 
 // ======================================================================
+// user's fingar has lifted, tell gridStrument
+//
 void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 {
     int id = pti.pointerInfo.pointerId;
@@ -557,6 +577,9 @@ void OnPointerUpHandler(HWND hWnd, const POINTER_TOUCH_INFO& pti)
 }
 
 // ======================================================================
+// surprised this doesn't already exist.  Helper function for RECT, using
+// existing POINT function.
+//
 void ScreenToClient(HWND hWnd, RECT* r)
 {
     POINT lt, rb;
@@ -573,6 +596,8 @@ void ScreenToClient(HWND hWnd, RECT* r)
 }
 
 // ======================================================================
+// Ask OS which MIDI output devices are connected, store in g_midiDeviceNames
+//
 void QueryMidiDevices()
 {
     g_midiDeviceNames.clear();
@@ -593,6 +618,9 @@ void QueryMidiDevices()
 }
 
 // ======================================================================
+// query devices and open the g_midiDeviceIndex preference, save in
+// g_midiDevice.
+//
 MMRESULT StartMidi()
 {
     // Query number of midi devices
@@ -604,11 +632,13 @@ MMRESULT StartMidi()
         std::wostringstream text;
         text << "Unable to midiOutOpen index=" << g_midiDeviceIndex << " returned=" << rc;
         AlertExit(NULL, text.str().c_str());
+        // FIXME - try reset to device 0 if fail with higher value.
     }
     return rc;
 }
 
 // ======================================================================
+// reset and close the current g_midiDevice
 void StopMidi()
 {
     // turn off any MIDI notes and close down.
@@ -627,7 +657,10 @@ void StopMidi()
 }
 
 // ======================================================================
-int PrefGetDefault(Pref key) {
+// helper for all Pref enum default values.
+//
+int PrefGetDefault(Pref key)
+{
     int value = -1;
     switch (key) {
     case Pref::GUITAR_MODE:
@@ -644,7 +677,7 @@ int PrefGetDefault(Pref key) {
         break;
     case Pref::MODULATION_CONTROLLER:
         value = 1;
-        break;    
+        break;
     case Pref::MIDI_CHANNEL_MIN:
         value = 0;
         break;
@@ -666,7 +699,9 @@ int PrefGetDefault(Pref key) {
 }
 
 // ======================================================================
-std::wstring PrefGetLabel(Pref key) {
+// labels for all Pref enums.
+std::wstring PrefGetLabel(Pref key)
+{
     std::wstring key_str = L"KEY_NOT_FOUND";
     // setup default values
     switch (key) {
@@ -690,7 +725,7 @@ std::wstring PrefGetLabel(Pref key) {
         break;
     case Pref::MIDI_CHANNEL_MAX:
         key_str = L"MIDI_CHANNEL_MAX";
-        break;    
+        break;
     case Pref::GRID_SIZE:
         key_str = L"GRID_SIZE";
         break;
@@ -706,6 +741,9 @@ std::wstring PrefGetLabel(Pref key) {
 }
 
 // ======================================================================
+// get DWORD value from Windows Registry stored in
+// HKEY_CURRENT_USER\Software\GridStrument\<key>
+//
 int PrefGetInt(Pref key) {
     int value = PrefGetDefault(key);
     std::wstring key_str = PrefGetLabel(key);
@@ -738,6 +776,9 @@ int PrefGetInt(Pref key) {
 }
 
 // ======================================================================
+// set DWORD value in Windows Registry stored in
+// HKEY_CURRENT_USER\Software\GridStrument\<key>
+//
 void PrefSetInt(Pref key, int value) {
     std::wstring key_str = PrefGetLabel(key);
 
