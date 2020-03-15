@@ -17,6 +17,10 @@
 // ======================================================================
 #include "GridUtils.h"
 
+// ======================================================================
+// Bring up a dialog with an Alert message, then *EXIT*.  Not trying to
+// recover from this error.
+//
 void AlertExit(HWND hWnd, LPCTSTR text) {
     std::wcout << "ERROR: " << text << "\nUnable to recover. Program will close." << std::endl;
     std::wostringstream text1;

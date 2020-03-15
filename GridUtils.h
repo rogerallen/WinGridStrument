@@ -22,6 +22,8 @@
 #include <sstream>
 
 // ======================================================================
+// Template to safely Release() handle.
+//
 template <class T> void SafeRelease(T** ppT) {
     if (*ppT) {
         (*ppT)->Release();
