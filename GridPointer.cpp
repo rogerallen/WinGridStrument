@@ -17,18 +17,37 @@
 // ======================================================================
 #include "GridPointer.h"
 
+// ======================================================================
+// Default contstructor.  FIXME would like to know why I need this.
+//
 GridPointer::GridPointer()
 {
     id_ = -1;
-    // FIXME initialize all
+    rect_ = RECT{ 0,0,0,0 };
+    point_ = POINT{ 0,0 };
+    pressure_ = 0;
+    starting_point_ = POINT{ 0,0 };
+    note_ = 0;
+    channel_ = 0;
+    modulation_x_ = modulation_y_ = modulation_z_ = 0;
 }
 
-GridPointer::GridPointer(int id, RECT rect, POINT point, int pressure) : 
+// ======================================================================
+// Standard Constructor.  Used when we get a finger down touch event.
+//
+GridPointer::GridPointer(int id, RECT rect, POINT point, int pressure) :
     id_(id), rect_(rect), point_(point), pressure_(pressure)
 {
     starting_point_ = point;
+    // setters will update these values
+    note_ = 0;
+    channel_ = 0;
+    modulation_x_ = modulation_y_ = modulation_z_ = 0;
 }
 
+// ======================================================================
+// update the pointer values on touch update event
+// 
 void GridPointer::update(RECT rect, POINT point, int pressure)
 {
     rect_ = rect;
@@ -36,10 +55,13 @@ void GridPointer::update(RECT rect, POINT point, int pressure)
     pressure_ = pressure;
 }
 
+// ======================================================================
+// return the dx,dy between the current point and starting point.
+//
 POINT GridPointer::pointChange()
 {
-    POINT p;
-    p.x = point_.x - starting_point_.x;
-    p.y = point_.y - starting_point_.y;
-    return p;
+    POINT delta;
+    delta.x = point_.x - starting_point_.x;
+    delta.y = point_.y - starting_point_.y;
+    return delta;
 }

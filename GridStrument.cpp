@@ -37,7 +37,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     num_grids_x_ = num_grids_y_ = 0;
     midi_device_ = new GridMidi(midiDevice);
     midi_channel_ = pref_midi_channel_min_;
-   
+
 }
 
 void GridStrument::MidiDevice(HMIDIOUT midiDevice) {
@@ -176,9 +176,9 @@ void GridStrument::PointerDown(int id, RECT rect, POINT point, int pressure)
     }
     grid_pointers_[id].channel(channel);
     int midi_pressure = RectToMidiPressure(rect);
-    grid_pointers_[id].modulation_z(midi_pressure);
-    grid_pointers_[id].modulation_x(-1);
-    grid_pointers_[id].modulation_y(-1);
+    grid_pointers_[id].modulationZ(midi_pressure);
+    grid_pointers_[id].modulationX(-1);
+    grid_pointers_[id].modulationY(-1);
     if (note >= 0) {
         midi_device_->noteOn(channel, note, midi_pressure);
 
@@ -209,18 +209,18 @@ void GridStrument::PointerUpdate(int id, RECT rect, POINT point, int pressure)
     int channel = cur_ptr.channel();
     POINT change = cur_ptr.pointChange();
     int mod_pitch = PointChangeToMidiPitch(change);
-    if (mod_pitch != cur_ptr.modulation_x()) {
-        cur_ptr.modulation_x(mod_pitch);
+    if (mod_pitch != cur_ptr.modulationX()) {
+        cur_ptr.modulationX(mod_pitch);
         midi_device_->pitchBend(channel, mod_pitch);
     }
     int mod_modulation = PointChangeToMidiModulation(change);
-    if (mod_modulation != cur_ptr.modulation_y()) {
-        cur_ptr.modulation_y(mod_modulation);
+    if (mod_modulation != cur_ptr.modulationY()) {
+        cur_ptr.modulationY(mod_modulation);
         midi_device_->controlChange(channel, pref_modulation_controller_, mod_modulation);
     }
     int midi_pressure = RectToMidiPressure(rect);
-    if (midi_pressure != cur_ptr.modulation_z()) {
-        cur_ptr.modulation_z(midi_pressure);
+    if (midi_pressure != cur_ptr.modulationZ()) {
+        cur_ptr.modulationZ(midi_pressure);
         int note = cur_ptr.note();
         midi_device_->polyKeyPressure(channel, note, midi_pressure);
     }

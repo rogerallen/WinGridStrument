@@ -19,35 +19,38 @@
 #include <wtypes.h>
 class GridPointer
 {
-    int   id_;
-    RECT  rect_;
-    POINT point_;
-    int   pressure_;
-    POINT starting_point_;
+    // data from OS
+    int   id_;             // unique ID for each touch on screen
+    RECT  rect_;           // size of finger touch area, used for pressure
+    POINT point_;          // center x,y of touch
+    int   pressure_;       // unfortunately, a fixed value and not useful
+    POINT starting_point_; // keep track of initial x,y location
     // higher-level associated data
-    int note_;
-    int channel_;
-    int modulation_x_;
-    int modulation_y_;
-    int modulation_z_;
+    int note_;             // midi note of initial x,y
+    int channel_;          // midi channel selected for this pointer  
+    int modulation_x_;     // midi modulation in +/- X direction
+    int modulation_y_;     // midi modulation in +/- Y direction
+    int modulation_z_;     // midi modulation in +/- Z direction (pressure)
 public:
     GridPointer();
     GridPointer(int id, RECT rect, POINT point, int pressure);
     void update(RECT rect, POINT point, int pressure);
+    POINT pointChange();
+    // getters
     int id() { return id_; };
     RECT rect() { return rect_; };
     POINT point() { return point_; };
     int pressure() { return pressure_; };
-    POINT pointChange();
+    // getters/setters
     void note(int note) { note_ = note; }
     int note() { return note_; }
     void channel(int channel) { channel_ = channel; }
     int channel() { return channel_; }
-    void modulation_x(int modulation_x) { modulation_x_ = modulation_x; }
-    int modulation_x() { return modulation_x_; }
-    void modulation_y(int modulation_y) { modulation_y_ = modulation_y; }
-    int modulation_y() { return modulation_y_; }
-    void modulation_z(int modulation_z) { modulation_z_ = modulation_z; }
-    int modulation_z() { return modulation_z_; }
+    void modulationX(int modulation_x) { modulation_x_ = modulation_x; }
+    int modulationX() { return modulation_x_; }
+    void modulationY(int modulation_y) { modulation_y_ = modulation_y; }
+    int modulationY() { return modulation_y_; }
+    void modulationZ(int modulation_z) { modulation_z_ = modulation_z; }
+    int modulationZ() { return modulation_z_; }
 };
 
