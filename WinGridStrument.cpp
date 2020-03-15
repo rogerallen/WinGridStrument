@@ -17,8 +17,22 @@
 // ======================================================================
 // WinGridStrument.cpp : Defines the entry point for the application.
 
-#include "framework.h"
-#include "WinGridStrument.h"
+// cannot get rid of this as WinGridStrument.rc uses it
+#include "targetver.h"
+
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+// Windows Header Files
+#include <windows.h>
+
+// C RunTime Header Files
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+
+// resources
+#include "resource.h"
+
 #include "GridStrument.h"
 #include "GridUtils.h"
 
