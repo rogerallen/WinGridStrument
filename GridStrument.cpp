@@ -367,7 +367,7 @@ int GridStrument::rectToMidiPressure(RECT rect)
     int y = (rect.bottom - rect.top);
     int area = x * y;
     float ratio = static_cast<float>(area) / (pref_grid_size_ / 2 * pref_grid_size_ / 2);
-    ratio = sqrtf(ratio) - 0.25;  // linearize it
+    ratio = sqrtf(ratio) - 0.25f;  // linearize it
     int pressure = static_cast<int>(ratio * 100);
     if (pressure > 127) {
         pressure = 127;

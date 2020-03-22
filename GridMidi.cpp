@@ -13,6 +13,7 @@ void checkAlertExit(MMRESULT rc) {
         midiOutGetErrorText(rc, error, MAXERRORLENGTH);
         std::wostringstream text;
         text << "Unable to midiOutShortMsg: " << error;
+        delete[] error;
         AlertExit(NULL, text.str().c_str());
     }
 }

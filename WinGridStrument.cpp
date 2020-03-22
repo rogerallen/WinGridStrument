@@ -439,7 +439,7 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
     HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
     int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
     if (g_midiDeviceIndex != midi_device) {
-        assert(midi_device < g_midiDeviceNames.size());
+        assert(static_cast<unsigned int>(midi_device) < g_midiDeviceNames.size());
         // close current, open new midi device
         StopMidi();
         g_midiDeviceIndex = midi_device;
