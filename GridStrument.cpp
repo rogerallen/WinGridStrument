@@ -76,7 +76,7 @@ void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget)
     if (!brushes_.initialized_) {
         brushes_.init(d2dRenderTarget);
     }
-    d2dRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+    d2dRenderTarget->Clear(brushes_.color_theme_.clearColor());
     if (pref_guitar_mode_) {
         drawGuitar(d2dRenderTarget);
     }
@@ -92,9 +92,7 @@ void GridStrument::drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
     for (auto p : grid_pointers_) {
         ID2D1SolidColorBrush* pBrush;
-        float pressure = p.second.pressure() / 512.0f;
-        const D2D1_COLOR_F color = D2D1::ColorF(pressure, 0.0f, pressure, 0.5f);
-        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &pBrush);
+        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(brushes_.color_theme_.touchColor(), &pBrush);
         if (SUCCEEDED(hr)) {
             RECT rc = p.second.rect();
             D2D1_RECT_F rcf = D2D1::RectF((float)rc.left, (float)rc.top, (float)rc.right, (float)rc.bottom);

@@ -23,6 +23,8 @@
 #define IDC_GRID_SIZE                   1007
 #define IDC_PITCH_BEND_RANGE2           1008
 #define IDC_PITCH_BEND_MASK             1008
+#define IDC_MIDI_DEV_COMBO2             1009
+#define IDC_COLOR_THEME_COMBO           1009
 #define ID_FILE_PREFERENCES             32771
 #define IDM_PREFS                       32772
 #define IDC_STATIC                      -1

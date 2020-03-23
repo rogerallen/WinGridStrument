@@ -40,7 +40,7 @@ public:
     int id() { return id_; };
     RECT rect() { return rect_; };
     POINT point() { return point_; };
-    int pressure() { return pressure_; };
+    int pressure() { return pressure_; }; // NOTE: does not change!
     // getters/setters
     void note(int note) { note_ = note; }
     int note() { return note_; }

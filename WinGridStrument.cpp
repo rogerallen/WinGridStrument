@@ -53,7 +53,7 @@ const static int MAX_LOADSTRING = 100;
 enum class Pref {
     MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, PITCH_BEND_MASK,
     MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX,
-    GRID_SIZE, CHANNEL_PER_ROW_MODE
+    GRID_SIZE, CHANNEL_PER_ROW_MODE, COLOR_THEME
 };
 
 // Global Variables:
@@ -142,6 +142,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->prefMidiChannelRange(PrefGetInt(Pref::MIDI_CHANNEL_MIN), PrefGetInt(Pref::MIDI_CHANNEL_MAX));
     g_gridStrument->prefGridSize(PrefGetInt(Pref::GRID_SIZE));
     g_gridStrument->prefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
+    g_gridStrument->prefColorTheme(static_cast<Theme>(PrefGetInt(Pref::COLOR_THEME)));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -356,6 +357,12 @@ void InitPrefsDialog(const HWND& hDlg)
     }
     SendMessage(midiDeviceComboBox, CB_SETCURSEL, (WPARAM)g_midiDeviceIndex, (LPARAM)0);
 
+    HWND colorThemeComboBox = GetDlgItem(hDlg, IDC_COLOR_THEME_COMBO);
+    for (auto s : ThemeNames) {
+        SendMessage(colorThemeComboBox, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)s.c_str());
+    }
+    SendMessage(colorThemeComboBox, CB_SETCURSEL, (WPARAM)static_cast<int>(g_gridStrument->prefColorTheme()), (LPARAM)0);
+
     CheckDlgButton(hDlg, IDC_GUITAR_MODE, g_gridStrument->prefGuitarMode());
 
     int value = g_gridStrument->prefPitchBendRange();
@@ -447,6 +454,13 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
         g_gridStrument->midiDevice(g_midiDevice);
     }
     PrefSetInt(Pref::MIDI_DEVICE_INDEX, g_midiDeviceIndex);
+
+    HWND colorThemeComboBox = GetDlgItem(hDlg, IDC_COLOR_THEME_COMBO);
+    int color_theme = static_cast<int>(SendMessage(colorThemeComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
+    if (static_cast<int>(g_gridStrument->prefColorTheme()) != color_theme) {
+        g_gridStrument->prefColorTheme(static_cast<Theme>(color_theme));
+    }
+    PrefSetInt(Pref::COLOR_THEME, color_theme);
 
     g_dirty_main_window = true; // FIXME hack!
 }
@@ -704,6 +718,9 @@ int PrefGetDefault(Pref key)
     case Pref::CHANNEL_PER_ROW_MODE:
         value = 0;
         break;
+    case Pref::COLOR_THEME:
+        value = 0;
+        break;
     default:
         std::wostringstream text;
         text << "Unknown Pref::enum=" << int(key);
@@ -745,6 +762,9 @@ std::wstring PrefGetLabel(Pref key)
         break;
     case Pref::CHANNEL_PER_ROW_MODE:
         key_str = L"CHANNEL_PER_ROW_MODE";
+        break;
+    case Pref::COLOR_THEME:
+        key_str = L"COLOR_THEME";
         break;
     default:
         std::wostringstream text;

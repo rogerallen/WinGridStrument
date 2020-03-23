@@ -21,9 +21,96 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <string>
 #include <assert.h>
 #include "GridPointer.h"
 #include "GridMidi.h"
+
+// ======================================================================
+// color theme enums
+//
+enum class Theme { DEFAULT = 0, TUFTE, MAXIMUM };
+const std::wstring ThemeNames[] = { L"LinnStrument", L"Tufte" };
+
+// ======================================================================
+// helper class for color themes
+//
+class GridColorTheme
+{
+    Theme cur_theme_;
+public:
+    GridColorTheme() {
+        cur_theme_ = Theme::DEFAULT;
+    }
+    Theme curTheme() { return cur_theme_; }
+    void curTheme(Theme t) {
+        cur_theme_ = static_cast<Theme>(std::clamp((int)t,0,(int)(Theme::MAXIMUM)-1));
+    }
+    D2D1_COLOR_F clearColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0xfffdff, 0.0f);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f);
+        }
+    }
+    D2D1_COLOR_F gridLineColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0x363435);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.75f, 0.75f, 0.75f);
+        }
+    }
+    D2D1_COLOR_F cNoteColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0xe9ccae);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.f, 0.f, 0.85f);
+        }
+    }
+    D2D1_COLOR_F noteColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0x363435);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.f, 0.85f, 0.f);
+        }
+    }
+    D2D1_COLOR_F highlightNoteColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0x969495);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.90f, 0.90f, 0.0f);
+        }
+    }
+    D2D1_COLOR_F guitarBackgroundColor() {
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0xa8937f);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.50f, 0.50f, 0.40f);
+        }
+    }
+    D2D1_COLOR_F touchColor() { 
+        // 0.5 alpha for blending with this color
+        switch (cur_theme_) {
+        case Theme::TUFTE:
+            return D2D1::ColorF(0xd6d4d5, 0.5f);
+        case Theme::DEFAULT:
+        default:
+            return D2D1::ColorF(0.80f, 0.0f, 0.80f, 0.50f); 
+        }
+    }
+};
 
 // ======================================================================
 // helper class for all the brushes.  Have to construct the brushes
@@ -33,6 +120,7 @@
 struct GridBrushes
 {
     bool initialized_;                // have we constructed the brushes yet?
+    GridColorTheme color_theme_;
     ID2D1SolidColorBrush* grid_line_; 
     ID2D1SolidColorBrush* c_note_;
     ID2D1SolidColorBrush* note_;
@@ -46,27 +134,28 @@ struct GridBrushes
         highlight_ = nullptr;
         guitar_ = nullptr;
     }
+    Theme curTheme() { return color_theme_.curTheme(); }
+    void curTheme(Theme t) {
+        color_theme_.curTheme(t);
+        initialized_ = false;
+    }
     void init(ID2D1HwndRenderTarget* d2dRenderTarget)
     {
         initialized_ = true;
-        D2D1_COLOR_F color = D2D1::ColorF(0.75f, 0.75f, 0.75f);
-        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color, &grid_line_);
+
+        HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(color_theme_.gridLineColor(), &grid_line_);
         assert(SUCCEEDED(hr));
 
-        color = D2D1::ColorF(0.f, 0.f, 0.85f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &c_note_);
+        hr = d2dRenderTarget->CreateSolidColorBrush(color_theme_.cNoteColor(), &c_note_);
         assert(SUCCEEDED(hr));
         
-        color = D2D1::ColorF(0.f, 0.85f, 0.f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &note_);
+        hr = d2dRenderTarget->CreateSolidColorBrush(color_theme_.noteColor(), &note_);
         assert(SUCCEEDED(hr));
         
-        color = D2D1::ColorF(0.90f, 0.90f, 0.f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &highlight_);
+        hr = d2dRenderTarget->CreateSolidColorBrush(color_theme_.highlightNoteColor(), &highlight_);
         assert(SUCCEEDED(hr));
         
-        color = D2D1::ColorF(0.50f, 0.50f, 0.40f);
-        hr = d2dRenderTarget->CreateSolidColorBrush(color, &guitar_);
+        hr = d2dRenderTarget->CreateSolidColorBrush(color_theme_.guitarBackgroundColor(), &guitar_);
         assert(SUCCEEDED(hr));
     }
 };
@@ -134,6 +223,8 @@ public:
     }
     bool prefChannelPerRowMode() { return pref_channel_per_row_mode_; }
     void prefChannelPerRowMode(bool mode) { pref_channel_per_row_mode_ = mode; }
+    Theme prefColorTheme() { return brushes_.curTheme(); }
+    void prefColorTheme(Theme t) { brushes_.curTheme(t); }
 private:
     void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
     void drawDots(ID2D1HwndRenderTarget* d2dRenderTarget);
