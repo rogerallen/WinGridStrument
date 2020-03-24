@@ -183,7 +183,7 @@ public:
     GridStrument(HMIDIOUT midiDevice);
     void midiDevice(HMIDIOUT midiDevice);
     void resize(D2D1_SIZE_U size);
-    void draw(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void draw(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat);
     void pointerDown(int id, RECT rect, POINT point, int pressure);
     void pointerUpdate(int id, RECT rect, POINT point, int pressure);
     void pointerUp(int id);
@@ -228,6 +228,7 @@ public:
 private:
     void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
     void drawDots(ID2D1HwndRenderTarget* d2dRenderTarget);
+    void drawText(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat);
     void drawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget);
     void drawGrid(ID2D1HwndRenderTarget* d2dRenderTarget);
     void nextMidiChannel();

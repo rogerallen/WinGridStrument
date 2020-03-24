@@ -1,4 +1,4 @@
-// ======================================================================
+﻿// ======================================================================
 // WinGridStrument - a Windows touchscreen musical instrument
 // Copyright(C) 2020 Roger Allen
 // 
@@ -71,7 +71,7 @@ void GridStrument::resize(D2D1_SIZE_U size)
 // main drawing routine.  create brushes if necessary & then draw the
 // grid, notes, etc.
 //
-void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget)
+void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat)
 {
     if (!brushes_.initialized_) {
         brushes_.init(d2dRenderTarget);
@@ -82,6 +82,7 @@ void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
     drawGrid(d2dRenderTarget);
     drawDots(d2dRenderTarget);
+    drawText(d2dRenderTarget, dwriteTextFormat);
     drawPointers(d2dRenderTarget);
 }
 
@@ -90,6 +91,7 @@ void GridStrument::draw(ID2D1HwndRenderTarget* d2dRenderTarget)
 //
 void GridStrument::drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
+    // FIXME add pointer brush to brushes_, it isn't dynamic any longer.
     for (auto p : grid_pointers_) {
         ID2D1SolidColorBrush* pBrush;
         HRESULT hr = d2dRenderTarget->CreateSolidColorBrush(brushes_.color_theme_.touchColor(), &pBrush);
@@ -131,6 +133,36 @@ void GridStrument::drawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
                 d2dRenderTarget->FillEllipse(ellipse, brushes_.note_);
 
             }
+        }
+    }
+}
+
+// ======================================================================
+// draw the text for each note. 
+//
+void GridStrument::drawText(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat)
+{
+    static const WCHAR note_names[][3] = { 
+        L"C ", L"C♯", L"D ", L"D♯", L"E ", L"F ", L"F♯", L"G ", L"G♯", L"A ", L"A♯", L"B " 
+    };
+    for (int x = 0; x < num_grids_x_; x++) {
+        for (int y = 0; y < num_grids_y_; y++) {
+            float left = 1.0f * x * pref_grid_size_ + 5;
+            // bottom of square
+            // float top = 1.0f * (y + 1) * pref_grid_size_ - 20;
+            // top of square
+            float top = 1.0f * y * pref_grid_size_ + 5;
+            float right = left + 100;
+            float bottom = top + 100;
+            int note = gridLocToMidiNote(x, y);
+            int note_index = note % 12;
+            d2dRenderTarget->DrawText(
+                note_names[note_index],
+                2,
+                dwriteTextFormat,
+                D2D1::RectF(left, top, right, bottom),
+                brushes_.grid_line_
+                );
         }
     }
 }
