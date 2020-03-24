@@ -66,8 +66,8 @@ ID2D1Factory* g_d2dFactory;
 ID2D1HwndRenderTarget* g_d2dRenderTarget;
 
 // DirectWrite vars
-IDWriteFactory* g_pDWriteFactory;
-IDWriteTextFormat* g_pTextFormat;
+IDWriteFactory* g_dwriteFactory;
+IDWriteTextFormat* g_textFormat;
 
 // MIDI vars
 HMIDIOUT g_midiDevice;
@@ -298,8 +298,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_d2dFactory))) {
             return -1;  // Fail CreateWindowEx.
         }
-        if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(g_pDWriteFactory),
-            reinterpret_cast<IUnknown**>(&g_pDWriteFactory)))) {
+        if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(g_dwriteFactory),
+            reinterpret_cast<IUnknown**>(&g_dwriteFactory)))) {
             return -1;  // Fail CreateWindowEx.
         }
         break;
@@ -494,13 +494,13 @@ HRESULT CreateGraphicsResources(HWND hWnd)
             &g_d2dRenderTarget);
 
     }
-    // make g_pTextFormat FIXME name
-    if (g_pTextFormat == NULL) {
+    // make g_pTextFormat
+    if (g_textFormat == NULL) {
         static const WCHAR msc_fontName[] = L"Arial";
         static const FLOAT msc_fontSize = 14;
 
         // Create a DirectWrite text format object.
-        hr = g_pDWriteFactory->CreateTextFormat(
+        hr = g_dwriteFactory->CreateTextFormat(
             msc_fontName,
             NULL,
             DWRITE_FONT_WEIGHT_NORMAL,
@@ -508,12 +508,12 @@ HRESULT CreateGraphicsResources(HWND hWnd)
             DWRITE_FONT_STRETCH_NORMAL,
             msc_fontSize,
             L"", //locale
-            &g_pTextFormat
+            &g_textFormat
             );
 
         if (SUCCEEDED(hr)) {
-            g_pTextFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-            g_pTextFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+            g_textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+            g_textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         }
     }
     return hr;
@@ -552,7 +552,7 @@ void OnPaint(HWND hWnd) {
 
         g_d2dRenderTarget->BeginDraw();
 
-        g_gridStrument->draw(g_d2dRenderTarget, g_pTextFormat);
+        g_gridStrument->draw(g_d2dRenderTarget, g_textFormat);
 
         hr = g_d2dRenderTarget->EndDraw();
         if (FAILED(hr) || hr == D2DERR_RECREATE_TARGET) {
