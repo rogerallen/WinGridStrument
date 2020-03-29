@@ -55,7 +55,7 @@ const static int MAX_LOADSTRING = 100;
 enum class Pref {
     MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, PITCH_BEND_MASK,
     MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX,
-    GRID_SIZE, CHANNEL_PER_ROW_MODE, COLOR_THEME
+    GRID_SIZE, CHANNEL_PER_ROW_MODE, COLOR_THEME, HEX_GRID_MODE
 };
 
 // Global Variables:
@@ -149,6 +149,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->prefGridSize(PrefGetInt(Pref::GRID_SIZE));
     g_gridStrument->prefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
     g_gridStrument->prefColorTheme(static_cast<Theme>(PrefGetInt(Pref::COLOR_THEME)));
+    g_gridStrument->prefHexGridMode(PrefGetInt(Pref::HEX_GRID_MODE));
+
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -401,6 +403,9 @@ void InitPrefsDialog(const HWND& hDlg)
     SetDlgItemText(hDlg, IDC_GRID_SIZE, tmp_str.c_str());
 
     CheckDlgButton(hDlg, IDC_CHANNEL_PER_ROW_MODE, g_gridStrument->prefChannelPerRowMode());
+
+    CheckDlgButton(hDlg, IDC_HEX_GRID_MODE, g_gridStrument->prefHexGridMode());
+
 }
 
 // ======================================================================
@@ -452,6 +457,10 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
     bool channel_per_row_mode = IsDlgButtonChecked(hDlg, IDC_CHANNEL_PER_ROW_MODE);
     g_gridStrument->prefChannelPerRowMode(channel_per_row_mode);
     PrefSetInt(Pref::CHANNEL_PER_ROW_MODE, channel_per_row_mode);
+
+    bool hex_grid_mode = IsDlgButtonChecked(hDlg, IDC_HEX_GRID_MODE);
+    g_gridStrument->prefHexGridMode(hex_grid_mode);
+    PrefSetInt(Pref::HEX_GRID_MODE, hex_grid_mode);
 
     HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
     int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -754,6 +763,9 @@ int PrefGetDefault(Pref key)
     case Pref::COLOR_THEME:
         value = 0;
         break;
+    case Pref::HEX_GRID_MODE:
+        value = 0;
+        break;
     default:
         std::wostringstream text;
         text << "Unknown Pref::enum=" << int(key);
@@ -798,6 +810,9 @@ std::wstring PrefGetLabel(Pref key)
         break;
     case Pref::COLOR_THEME:
         key_str = L"COLOR_THEME";
+        break;
+    case Pref::HEX_GRID_MODE:
+        key_str = L"HEX_GRID_MODE";
         break;
     default:
         std::wostringstream text;

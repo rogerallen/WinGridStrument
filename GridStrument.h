@@ -170,6 +170,7 @@ class GridStrument
     int pref_midi_channel_min_, pref_midi_channel_max_;
     int pref_grid_size_;
     bool pref_channel_per_row_mode_;
+    bool pref_hex_grid_mode_;
 
     // all of the current finger touches in one dictionary
     std::map<int, GridPointer> grid_pointers_;
@@ -225,6 +226,13 @@ public:
     void prefChannelPerRowMode(bool mode) { pref_channel_per_row_mode_ = mode; }
     Theme prefColorTheme() { return brushes_.curTheme(); }
     void prefColorTheme(Theme t) { brushes_.curTheme(t); }
+    bool prefHexGridMode() { return pref_hex_grid_mode_; }
+    void prefHexGridMode(bool mode) { 
+        if (mode != pref_hex_grid_mode_) {
+            pref_hex_grid_mode_ = mode;
+            resize(size_);
+        }
+    }
 private:
     void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
     void drawDots(ID2D1HwndRenderTarget* d2dRenderTarget);

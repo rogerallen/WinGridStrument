@@ -20,6 +20,16 @@
 #include <cassert>
 #include <iostream>
 #include <set>
+#include <vector>
+
+// ======================================================================
+// forward decl for "public" methods for dealing with hex grids
+// FIXME - refactor this to be more object-oriented instead of functional
+void hexGetNumGrids(int screen_width, int screen_height, int grid_size, int& num_grids_x, int& num_grids_y);
+void hexDrawCell(ID2D1HwndRenderTarget* d2dRenderTarget, ID2D1SolidColorBrush* brush, int grid_size, int num_grids_x, int num_grids_y, int x, int y);
+int hexGridLocToMidiNote(int num_grids_y, int x, int y);
+D2D1_POINT_2F hexGridLocToPoint(int grid_size, int x, int y);
+void pointToHexGridLoc(POINT point, int grid_size, int& x, int& y);
 
 // ======================================================================
 // Main constructor, set defaults and midi output device
@@ -34,6 +44,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     pref_grid_size_ = 90;
     pref_channel_per_row_mode_ = false;
     pref_pitch_bend_mask_ = 0x3fff;
+    pref_hex_grid_mode_ = true;
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
@@ -56,8 +67,13 @@ void GridStrument::midiDevice(HMIDIOUT midiDevice) {
 void GridStrument::resize(D2D1_SIZE_U size)
 {
     size_ = size;
-    num_grids_x_ = (int)(size_.width / pref_grid_size_);
-    num_grids_y_ = (int)(size_.height / pref_grid_size_);
+    if (!pref_hex_grid_mode_) {
+        num_grids_x_ = (int)(size_.width / pref_grid_size_);
+        num_grids_y_ = (int)(size_.height / pref_grid_size_);
+    }
+    else {
+        hexGetNumGrids((int)size_.width, (int)size_.height, pref_grid_size_ / 2, num_grids_x_, num_grids_y_);
+    }
 
 #ifndef NDEBUG
     std::wcout << "screen width = " << size.width << ", height = " << size.height << std::endl;
@@ -116,12 +132,21 @@ void GridStrument::drawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
     }
     for (int x = 0; x < num_grids_x_; x++) {
         for (int y = 0; y < num_grids_y_; y++) {
-            int note = gridLocToMidiNote(x, y);
+            int note;
+            D2D1_POINT_2F center;
+            if (!pref_hex_grid_mode_) {
+                note = gridLocToMidiNote(x, y);
+                center = D2D1::Point2F(x * pref_grid_size_ + pref_grid_size_ / 2.f, y * pref_grid_size_ + pref_grid_size_ / 2.f);
+            }
+            else {
+                note = hexGridLocToMidiNote(num_grids_y_, x, y);
+                center = hexGridLocToPoint(pref_grid_size_ / 2, x, y);
+            }
             D2D1_ELLIPSE ellipse = D2D1::Ellipse(
-                D2D1::Point2F(x * pref_grid_size_ + pref_grid_size_ / 2.f, y * pref_grid_size_ + pref_grid_size_ / 2.f),
+                center,
                 pref_grid_size_ / 5.f,
                 pref_grid_size_ / 5.f
-            );
+                );
             if (active_notes.find(note) != active_notes.end()) {
                 d2dRenderTarget->FillEllipse(ellipse, brushes_.highlight_);
             }
@@ -131,10 +156,10 @@ void GridStrument::drawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
             else if (((note % 12) == 2) || ((note % 12) == 4) || ((note % 12) == 5) ||
                 ((note % 12) == 7) || ((note % 12) == 9) || ((note % 12) == 11)) {
                 d2dRenderTarget->FillEllipse(ellipse, brushes_.note_);
-
             }
         }
     }
+
 }
 
 // ======================================================================
@@ -142,20 +167,38 @@ void GridStrument::drawDots(ID2D1HwndRenderTarget* d2dRenderTarget)
 //
 void GridStrument::drawText(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat)
 {
-    static const WCHAR note_names[][3] = { 
-        L"C ", L"C♯", L"D ", L"D♯", L"E ", L"F ", L"F♯", L"G ", L"G♯", L"A ", L"A♯", L"B " 
+    static const WCHAR note_names[][3] = {
+        // Just in case sharp: ♯ flat: ♭ and a natural: ♮
+        L"C ", L"C♯", L"D ", L"D♯", L"E ", L"F ", L"F♯", L"G ", L"G♯", L"A ", L"A♯", L"B "
+        //L"C ", L"D♭", L"D ", L"E♭", L"E ", L"F ", L"G♭", L"G ", L"A♭", L"A ", L"B♭", L"B "
     };
     for (int x = 0; x < num_grids_x_; x++) {
         for (int y = 0; y < num_grids_y_; y++) {
-            float left = 1.0f * x * pref_grid_size_ + 5;
-            // bottom of square
-            // float top = 1.0f * (y + 1) * pref_grid_size_ - 20;
-            // top of square
-            float top = 1.0f * y * pref_grid_size_ + 5;
-            float right = left + 100;
-            float bottom = top + 100;
-            int note = gridLocToMidiNote(x, y);
-            int note_index = note % 12;
+            float left, top, right, bottom;
+            int note_index;
+            if (!pref_hex_grid_mode_) {
+                left = 1.0f * x * pref_grid_size_ + 5;
+                // bottom of square
+                // float top = 1.0f * (y + 1) * pref_grid_size_ - 20;
+                // top of square
+                top = 1.0f * y * pref_grid_size_ + 5;
+                right = left + 100;
+                bottom = top + 100;
+                int note = gridLocToMidiNote(x, y);
+                note_index = note % 12;
+            }
+            else {
+                //int mid_y = num_grids_y_ - 1 - num_grids_y_ / 2;
+                //assert(55 == hexGridLocToMidiNote(num_grids_y_, 0, mid_y));
+                //assert(55+7 == hexGridLocToMidiNote(num_grids_y_, 0, mid_y - 1));
+                D2D1_POINT_2F center = hexGridLocToPoint(pref_grid_size_ / 2, x, y);
+                left = center.x - pref_grid_size_ / 2 + (float)(sqrt(3)*15);
+                top = center.y - pref_grid_size_ / 2 + 10;
+                right = left + 100;
+                bottom = top + 100;
+                int note = hexGridLocToMidiNote(num_grids_y_, x, y);
+                note_index = note % 12;
+            }
             d2dRenderTarget->DrawText(
                 note_names[note_index],
                 2,
@@ -165,6 +208,7 @@ void GridStrument::drawText(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextF
                 );
         }
     }
+
 }
 
 // ======================================================================
@@ -173,6 +217,9 @@ void GridStrument::drawText(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextF
 //
 void GridStrument::drawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
+    if (pref_hex_grid_mode_)
+        return;
+
     float left, right, top, bottom;
     left = 0.0f;
     right = 1.0f * num_grids_x_ * pref_grid_size_;
@@ -191,21 +238,30 @@ void GridStrument::drawGuitar(ID2D1HwndRenderTarget* d2dRenderTarget)
 //
 void GridStrument::drawGrid(ID2D1HwndRenderTarget* d2dRenderTarget)
 {
-    for (int x = 0; x < num_grids_x_ * pref_grid_size_ + 1; x += pref_grid_size_) {
-        d2dRenderTarget->DrawLine(
-            D2D1::Point2F(static_cast<FLOAT>(x), 0.0f),
-            D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(num_grids_y_ * pref_grid_size_)),
-            brushes_.grid_line_,
-            1.5f
-        );
+    if (!pref_hex_grid_mode_) {
+        for (int x = 0; x < num_grids_x_ * pref_grid_size_ + 1; x += pref_grid_size_) {
+            d2dRenderTarget->DrawLine(
+                D2D1::Point2F(static_cast<FLOAT>(x), 0.0f),
+                D2D1::Point2F(static_cast<FLOAT>(x), static_cast<FLOAT>(num_grids_y_ * pref_grid_size_)),
+                brushes_.grid_line_,
+                1.5f
+                );
+        }
+        for (int y = 0; y < num_grids_y_ * pref_grid_size_ + 1; y += pref_grid_size_) {
+            d2dRenderTarget->DrawLine(
+                D2D1::Point2F(0.0f, static_cast<FLOAT>(y)),
+                D2D1::Point2F(static_cast<FLOAT>(num_grids_x_ * pref_grid_size_), static_cast<FLOAT>(y)),
+                brushes_.grid_line_,
+                1.5f
+                );
+        }
     }
-    for (int y = 0; y < num_grids_y_ * pref_grid_size_ + 1; y += pref_grid_size_) {
-        d2dRenderTarget->DrawLine(
-            D2D1::Point2F(0.0f, static_cast<FLOAT>(y)),
-            D2D1::Point2F(static_cast<FLOAT>(num_grids_x_ * pref_grid_size_), static_cast<FLOAT>(y)),
-            brushes_.grid_line_,
-            1.5f
-        );
+    else {
+        for (int x = 0; x < num_grids_x_; x++) {
+            for (int y = 0; y < num_grids_y_; y++) {
+                hexDrawCell(d2dRenderTarget, brushes_.grid_line_, pref_grid_size_ / 2, num_grids_x_, num_grids_y_, x, y);
+            }
+        }
     }
 }
 
@@ -326,7 +382,7 @@ void GridStrument::pointerUp(int id)
 // convert window point to grid x.  -1 if not in the grid
 //
 int GridStrument::pointToGridColumn(POINT point) {
-    if (point.x > num_grids_x_* pref_grid_size_) {
+    if (point.x > num_grids_x_ * pref_grid_size_) {
         return -1;
     }
     int x = point.x / pref_grid_size_;
@@ -337,7 +393,7 @@ int GridStrument::pointToGridColumn(POINT point) {
 // convert window point to grid y. -1 if not in the grid
 //
 int GridStrument::pointToGridRow(POINT point) {
-    if (point.y > num_grids_y_* pref_grid_size_) {
+    if (point.y > num_grids_y_ * pref_grid_size_) {
         return -1;
     }
     int y = point.y / pref_grid_size_;
@@ -348,15 +404,23 @@ int GridStrument::pointToGridRow(POINT point) {
 // convert window point to a midi note value.  return -1 if not in the grid
 int GridStrument::pointToMidiNote(POINT point)
 {
-    int x = pointToGridColumn(point);
-    if (x < 0) {
-        return -1;
+    int note;
+    if (!pref_hex_grid_mode_) {
+        int x = pointToGridColumn(point);
+        if (x < 0) {
+            return -1;
+        }
+        int y = pointToGridRow(point);
+        if (y < 0) {
+            return -1;
+        }
+        note = gridLocToMidiNote(x, y);
     }
-    int y = pointToGridRow(point);
-    if (y < 0) {
-        return -1;
+    else {
+        int x, y;
+        pointToHexGridLoc(point, pref_grid_size_/2, x, y); // updates x,y
+        note = hexGridLocToMidiNote(num_grids_y_, x, y);
     }
-    int note = gridLocToMidiNote(x, y);
     return note;
 }
 
@@ -446,4 +510,299 @@ int GridStrument::pointChangeToMidiModulation(POINT delta)
         modulation = 0;
     }
     return modulation;
+}
+
+// ======================================================================
+// hex notes
+// https://www.redblobgames.com/grids/hexagons/
+// https://www.redblobgames.com/grids/hexagons/implementation.html
+// q (flat top, instead of r pointy top) orientation matches
+//    https://en.wikipedia.org/wiki/Harmonic_table_note_layout
+// odd-q puts 0,0 in upper left corner.  let's use that
+// 
+
+// Code below based on 
+// Generated code -- CC0 -- No Rights Reserved -- http://www.redblobgames.com/grids/hexagons/
+//
+
+struct Point
+{
+    const double x;
+    const double y;
+    Point(double x_, double y_) : x(x_), y(y_) {}
+};
+
+// These are cube coords, our native is offset coords (see below)
+// we need to convert from Offset to Hex 
+struct Hex
+{
+    const int q;
+    const int r;
+    const int s;
+    Hex(int q_, int r_, int s_) : q(q_), r(r_), s(s_) {
+        if (q + r + s != 0) throw "q + r + s must be 0";
+    }
+};
+
+struct FractionalHex
+{
+    const double q;
+    const double r;
+    const double s;
+    FractionalHex(double q_, double r_, double s_) : q(q_), r(r_), s(s_) {
+        if (round(q + r + s) != 0) throw "q + r + s must be 0";
+    }
+};
+
+struct OffsetCoord
+{
+    const int col;
+    const int row;
+    OffsetCoord(int col_, int row_) : col(col_), row(row_) {}
+};
+
+struct FractionalOffsetCoord
+{
+    const double col;
+    const double row;
+    FractionalOffsetCoord(double col_, double row_) : col(col_), row(row_) {}
+};
+
+struct Orientation
+{
+    const double f0;
+    const double f1;
+    const double f2;
+    const double f3;
+    const double b0;
+    const double b1;
+    const double b2;
+    const double b3;
+    const double start_angle;
+    Orientation(double f0_, double f1_, double f2_, double f3_, double b0_, double b1_, double b2_, double b3_, double start_angle_) : f0(f0_), f1(f1_), f2(f2_), f3(f3_), b0(b0_), b1(b1_), b2(b2_), b3(b3_), start_angle(start_angle_) {}
+};
+
+struct Layout
+{
+    const Orientation orientation;
+    const Point size;
+    const Point origin;
+    Layout(Orientation orientation_, Point size_, Point origin_) : orientation(orientation_), size(size_), origin(origin_) {}
+};
+
+const Orientation flat_orientation = Orientation(3.0 / 2.0, 0.0, sqrt(3.0) / 2.0, sqrt(3.0), 2.0 / 3.0, 0.0, -1.0 / 3.0, sqrt(3.0) / 3.0, 0.0);
+
+Point hex_to_pixel(Layout layout, Hex h)
+{
+    Orientation M = layout.orientation;
+    Point size = layout.size;
+    Point origin = layout.origin;
+    double x = (M.f0 * h.q + M.f1 * h.r) * size.x;
+    double y = (M.f2 * h.q + M.f3 * h.r) * size.y;
+    return Point(x + origin.x, y + origin.y);
+}
+
+FractionalHex pixel_to_hex(Layout layout, Point p)
+{
+    Orientation M = layout.orientation;
+    Point size = layout.size;
+    Point origin = layout.origin;
+    Point pt = Point((p.x - origin.x) / size.x, (p.y - origin.y) / size.y);
+    double q = M.b0 * pt.x + M.b1 * pt.y;
+    double r = M.b2 * pt.x + M.b3 * pt.y;
+    return FractionalHex(q, r, -q - r);
+}
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+Point hex_corner_offset(Layout layout, int corner) {
+    Point size = layout.size;
+    double angle = 2.0 * M_PI *
+        (layout.orientation.start_angle + corner) / 6;
+    return Point(size.x * cos(angle), size.y * sin(angle));
+}
+
+std::vector<Point> polygon_corners(Layout layout, Hex h) {
+    std::vector<Point> corners = {};
+    Point center = hex_to_pixel(layout, h);
+    for (int i = 0; i < 6; i++) {
+        Point offset = hex_corner_offset(layout, i);
+        corners.push_back(Point(center.x + offset.x,
+            center.y + offset.y));
+    }
+    return corners;
+}
+
+const double EVEN = 1;
+const double ODD = -1;
+OffsetCoord qoffset_from_cube(int offset, Hex h)
+{
+    int col = h.q;
+    int row = h.r + int((h.q + offset * (h.q & 1)) / 2);
+    if (offset != EVEN && offset != ODD)
+    {
+        throw "offset must be EVEN (+1) or ODD (-1)";
+    }
+    return OffsetCoord(col, row);
+}
+FractionalOffsetCoord qoffset_from_cube(double offset, FractionalHex h)
+{
+    double col = h.q;
+    double odd_q = static_cast<int>(h.q) & 1 ? 1 : 0;
+    double row = h.r + int((h.q + offset * odd_q) / 2);
+    if (offset != EVEN && offset != ODD)
+    {
+        throw "offset must be EVEN (+1) or ODD (-1)";
+    }
+    return FractionalOffsetCoord(col, row);
+}
+
+Hex qoffset_to_cube(int offset, OffsetCoord h)
+{
+    int q = h.col;
+    int r = h.row - int((h.col + offset * (h.col & 1)) / 2);
+    int s = -q - r;
+    if (offset != EVEN && offset != ODD)
+    {
+        throw "offset must be EVEN (+1) or ODD (-1)";
+    }
+    return Hex(q, r, s);
+}
+
+Hex hex_round(FractionalHex h)
+{
+    int qi = int(round(h.q));
+    int ri = int(round(h.r));
+    int si = int(round(h.s));
+    double q_diff = abs(qi - h.q);
+    double r_diff = abs(ri - h.r);
+    double s_diff = abs(si - h.s);
+    if (q_diff > r_diff && q_diff > s_diff)
+    {
+        qi = -ri - si;
+    }
+    else
+        if (r_diff > s_diff)
+        {
+            ri = -qi - si;
+        }
+        else
+        {
+            si = -qi - ri;
+        }
+    return Hex(qi, ri, si);
+}
+
+// ======================================================================
+// "public" methods for dealing with hex grids
+// FIXME - refactor this to be more object-oriented instead of functional
+void hexGetNumGrids(int screen_width, int screen_height, int grid_size, int& num_grids_x, int& num_grids_y)
+{
+    Layout l = Layout(flat_orientation, Point(grid_size, grid_size), Point(grid_size, sqrt(3) * grid_size / 2));
+    FractionalHex fh = pixel_to_hex(l, Point(screen_width, screen_height));
+    FractionalOffsetCoord oc = qoffset_from_cube(ODD, fh);
+    num_grids_x = static_cast<int>(oc.col);
+    num_grids_y = static_cast<int>(oc.row);
+}
+
+void hexDrawCell(ID2D1HwndRenderTarget* d2dRenderTarget, ID2D1SolidColorBrush* brush, int grid_size, int num_grids_x, int num_grids_y, int x, int y)
+{
+    OffsetCoord oc = OffsetCoord(x, y);
+    Hex h = qoffset_to_cube((int)ODD, oc);
+    Layout l = Layout(flat_orientation, Point(grid_size, grid_size), Point(grid_size, sqrt(3) * grid_size / 2));
+    std::vector<Point> points = polygon_corners(l, h);
+    // drawing all 6 lines results in lots of overdraw, so we do something a bit more complicated
+    // to avoid the overdraw
+    for (int i = 3; i < 6; i++) {
+        float x0 = static_cast<float>(points[i].x);
+        float y0 = static_cast<float>(points[i].y);
+        float x1 = static_cast<float>(points[(i + 1) % 6].x);
+        float y1 = static_cast<float>(points[(i + 1) % 6].y);
+        d2dRenderTarget->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush, 1.5f);
+    }
+    if (x == 0) {
+        int i = 2;
+        float x0 = static_cast<float>(points[i].x);
+        float y0 = static_cast<float>(points[i].y);
+        float x1 = static_cast<float>(points[(i + 1) % 6].x);
+        float y1 = static_cast<float>(points[(i + 1) % 6].y);
+        d2dRenderTarget->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush, 1.5f);
+    }
+    else if (x == num_grids_x - 1) {
+        int i = 0;
+        float x0 = static_cast<float>(points[i].x);
+        float y0 = static_cast<float>(points[i].y);
+        float x1 = static_cast<float>(points[(i + 1) % 6].x);
+        float y1 = static_cast<float>(points[(i + 1) % 6].y);
+        d2dRenderTarget->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush, 1.5f);
+    }
+    if (y == num_grids_y - 1) {
+        if ((x & 1) == 0) { // even
+            int i = 1;
+            float x0 = static_cast<float>(points[i].x);
+            float y0 = static_cast<float>(points[i].y);
+            float x1 = static_cast<float>(points[(i + 1) % 6].x);
+            float y1 = static_cast<float>(points[(i + 1) % 6].y);
+            d2dRenderTarget->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush, 1.5f);
+        }
+        else {
+            for (int i = 0; i < 3; i++) {
+                float x0 = static_cast<float>(points[i].x);
+                float y0 = static_cast<float>(points[i].y);
+                float x1 = static_cast<float>(points[(i + 1) % 6].x);
+                float y1 = static_cast<float>(points[(i + 1) % 6].y);
+                d2dRenderTarget->DrawLine(D2D1::Point2F(x0, y0), D2D1::Point2F(x1, y1), brush, 1.5f);
+            }
+        }
+    }
+}
+
+int hexGridLocToMidiNote(int num_grids_y, int x, int y)
+{
+    // Y-Delta is like the X row size in normal array index math
+    // It is fixed at 7 to match going up by musical *fifths*
+    int Y_DELTA = 7;
+    // Y-invert so up is higher note.  Grid Y ranges from 0..(num-1)
+    y = num_grids_y - 1 - y;
+    int center_y = num_grids_y / 2;
+    int note;
+    if ((x & 1) == 0) {
+        // EVEN: put 55 or guitar's 4th string open G on left in middle
+        int offset = 55 - (0 + center_y * Y_DELTA);
+        x = x / 2;
+        note = offset + x + y * Y_DELTA;
+    }
+    else {
+        // ODD: put E-below-G as left-middle offset for odd strings
+        // (so E + minor third = G)
+        // g f# f e = 55 54 53 52
+        int offset = 52 - (0 + center_y * Y_DELTA);
+        x = (x - 1) / 2;
+        note = offset + x + y * Y_DELTA;
+    }
+    note = std::clamp(note, 0, 127);
+    return note;
+
+}
+
+D2D1_POINT_2F hexGridLocToPoint(int grid_size, int x, int y)
+{
+    OffsetCoord oc = OffsetCoord(x, y);
+    Hex h = qoffset_to_cube((int)ODD, oc);
+    Layout l = Layout(flat_orientation, Point(grid_size, grid_size), Point(grid_size, sqrt(3) * grid_size / 2));
+    Point center = hex_to_pixel(l, h);
+    return  D2D1::Point2F(static_cast<float>(center.x), static_cast<float>(center.y));
+}
+
+void pointToHexGridLoc(POINT point, int grid_size, int& x, int& y)
+{
+    Layout l = Layout(flat_orientation, Point(grid_size, grid_size), Point(grid_size, sqrt(3) * grid_size / 2));
+    FractionalHex fh = pixel_to_hex(l, Point(point.x, point.y));
+    // If you use offset coordinates, use return cube_to_{odd,even}{r,q}(cube_round(Cube(q, -q-r, r))).
+    Hex h = hex_round(fh);
+    OffsetCoord oc = qoffset_from_cube((int)ODD, h);
+    x = static_cast<int>(oc.col);
+    y = static_cast<int>(oc.row);
 }
