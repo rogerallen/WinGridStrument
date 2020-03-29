@@ -41,14 +41,18 @@ synthesizer, but it isn't that responsive.
 
 ### Preference Controls
 
-- Guitar Mode: change notes vertically by fourths, except for the "B string" and above.  Like a standard guitar tuning.
-- Pitch Bend Range: Match this to your MIDI Patch controls.  Typical values are 2 and 12.  Pitch bend adjusts when you move your finger left and right.
-- Pitch Bend Mask: AND with this value before sending in order to quantize.
-- Midi Output Device: Select the MIDI device you will send to.
-- Modulation MIDI Controller: Select the [controller](https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2) to use when your finger moves up and down.
-- MIDI Channel Min/Max: Each finger press gets a new MIDI channel so controls can try be per-note.  Use this to constrain the channels used.
-- Grid Size: the width & height of one grid on the screen.  (Default is 90)
-- Per Row MIDI Channel Mode
+- __Guitar Mode__: change notes vertically by fourths, except for the "B string" and above.  Like a standard guitar tuning.
+- __Pitch Bend Range__: Match this to your MIDI Patch controls.  Typical values are 2 and 12.  Pitch bend adjusts when you move your finger left and right.
+- __Pitch Bend Mask__: AND with this value before sending in order to quantize.
+- __Midi Output Device__: Select the MIDI device you will send to.
+- __Modulation MIDI Controller__: Select the [controller](https://www.midi.org/specifications-old/item/table-3-control-change-messages-data-bytes-2) to use when your finger moves up and down.
+- __MIDI Channel Min/Max__: Each finger press gets a new MIDI channel so controls can try be per-note.  Use this to constrain the channels used.
+- __Grid Size__: the width & height of one grid on the screen.  (Default is 90)
+- __Per Row MIDI Channel Mode__: each row gets its own midi channel (within min/max bounds)
+- __Color Theme__:
+  - _LinnStrument_ - dark theme with green & blue highlights
+  - _Tufte_ - light theme with tan & black highlights.
+- __Hex Grid Mode__: a [Harmonic Table Note Layout](https://en.wikipedia.org/wiki/Harmonic_table_note_layout)
 
 ## License
 
