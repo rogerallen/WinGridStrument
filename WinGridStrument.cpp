@@ -36,6 +36,8 @@
 #include "GridStrument.h"
 #include "GridUtils.h"
 
+#include <fluidsynth.h>
+
 #include <map>
 #include <cassert>
 #include <iostream>
