@@ -171,6 +171,7 @@ class GridStrument
     int pref_grid_size_;
     bool pref_channel_per_row_mode_;
     bool pref_hex_grid_mode_;
+    bool pref_use_synth_;
 
     // all of the current finger touches in one dictionary
     std::map<int, GridPointer> grid_pointers_;
@@ -233,6 +234,9 @@ public:
             resize(size_);
         }
     }
+    bool prefUseSynth() { return pref_use_synth_; }
+    void prefUseSynth(bool mode) { pref_use_synth_ = mode; }
+
 private:
     void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);
     void drawDots(ID2D1HwndRenderTarget* d2dRenderTarget);

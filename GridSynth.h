@@ -24,6 +24,7 @@ class GridSynth
     fluid_settings_t     *settings_;
     fluid_synth_t        *synth_;
     fluid_audio_driver_t *adriver_;
+    int                   soundfont_id_;
 
 public:
     GridSynth();

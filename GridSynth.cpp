@@ -20,7 +20,7 @@
 
 // ======================================================================
 void checkAlertExit(int rc, std::wstring errStr) {
-    if (rc != FLUID_OK) {
+    if (rc == FLUID_FAILED) {
         std::wostringstream text;
         text << "fluid fail (" << rc << "): " << errStr;
         AlertExit(NULL, text.str().c_str());
@@ -34,8 +34,13 @@ GridSynth::GridSynth()
     synth_ = new_fluid_synth(settings_);
 
     int rc = fluid_settings_setstr(settings_, "audio.driver", "dsound");
-    checkAlertExit(rc, L"fluid_settings_setstr");
+    checkAlertExit(rc, L"fluid_settings_setstr-dsound");
     adriver_ = new_fluid_audio_driver(settings_, synth_);
+
+    // "\\Users\\rallen\\Documents\\Devel\\Cpp\\WinGridStrument\\SoundFonts\\VintageDreamsWaves-v2.sf2"
+    rc = fluid_synth_sfload(synth_, "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/VintageDreamsWaves-v2.sf2", TRUE);
+    checkAlertExit(rc, L"fluid_synth_sfload");
+    soundfont_id_ = rc; 
 }
 
 // ======================================================================
@@ -49,7 +54,12 @@ GridSynth::~GridSynth()
 // ======================================================================
 void GridSynth::noteOn(int channel, int note, int midi_pressure)
 {
-    fluid_synth_noteon(synth_, channel, note, midi_pressure);
+    if (midi_pressure > 0) {
+        fluid_synth_noteon(synth_, channel, note, midi_pressure);
+    }
+    else {
+        fluid_synth_noteoff(synth_, channel, note);
+    }
 }
 
 // ======================================================================

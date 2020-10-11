@@ -45,6 +45,7 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     pref_channel_per_row_mode_ = false;
     pref_pitch_bend_mask_ = 0x3fff;
     pref_hex_grid_mode_ = true;
+    pref_use_synth_ = true; // FIXME
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;

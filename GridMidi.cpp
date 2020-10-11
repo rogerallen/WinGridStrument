@@ -19,6 +19,10 @@
 #include "GridUtils.h"
 #include <iostream>
 
+// FIXME
+#include "GridSynth.h"
+extern GridSynth* g_gridSynth;
+
 GridMidi::GridMidi(HMIDIOUT midiDevice)
 {
     midi_device_ = midiDevice;
@@ -37,6 +41,9 @@ void checkAlertExit(MMRESULT rc) {
 
 void GridMidi::noteOn(int channel, int note, int midi_pressure)
 {
+    g_gridSynth->noteOn(channel, note, midi_pressure); // FIXME
+    return;
+
     MidiMessage message(MIDI::NOTE_ON + channel, note, midi_pressure);
     MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
     checkAlertExit(rc);

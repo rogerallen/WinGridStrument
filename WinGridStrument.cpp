@@ -76,7 +76,7 @@ int g_midiDeviceIndex;
 std::vector<std::wstring> g_midiDeviceNames;
 
 // Synth var
-GridSynth *g_gridSynth;
+GridSynth *g_gridSynth;  // FIXME -- move this into GridStrument class
 
 // Instrument Class Vars
 GridStrument* g_gridStrument;
