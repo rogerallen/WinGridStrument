@@ -33,6 +33,9 @@
     <ClInclude Include="GridMidi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GridSynth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WinGridStrument.cpp">
@@ -48,6 +51,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GridMidi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GridSynth.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

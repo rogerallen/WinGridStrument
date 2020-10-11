@@ -35,8 +35,7 @@
 
 #include "GridStrument.h"
 #include "GridUtils.h"
-
-#include <fluidsynth.h>
+#include "GridSynth.h"
 
 #include <map>
 #include <cassert>
@@ -75,6 +74,9 @@ IDWriteTextFormat* g_textFormat;
 HMIDIOUT g_midiDevice;
 int g_midiDeviceIndex;
 std::vector<std::wstring> g_midiDeviceNames;
+
+// Synth var
+GridSynth *g_gridSynth;
 
 // Instrument Class Vars
 GridStrument* g_gridStrument;
@@ -142,6 +144,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         AlertExit(NULL, L"Error opening MIDI Output.");
     }
 
+    g_gridSynth = new GridSynth();
+
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->prefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->prefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
@@ -152,7 +156,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->prefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
     g_gridStrument->prefColorTheme(static_cast<Theme>(PrefGetInt(Pref::COLOR_THEME)));
     g_gridStrument->prefHexGridMode(PrefGetInt(Pref::HEX_GRID_MODE));
-
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -179,6 +182,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     StopMidi();
+
+    delete g_gridStrument;
+    delete g_gridSynth;
 
     return (int)msg.wParam;
 }
