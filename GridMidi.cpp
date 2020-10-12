@@ -51,6 +51,9 @@ void GridMidi::noteOn(int channel, int note, int midi_pressure)
 
 void GridMidi::pitchBend(int channel, int mod_pitch)
 {
+    g_gridSynth->pitchBend(channel, mod_pitch); // FIXME
+    return;
+
     MidiMessage message(MIDI::PITCH_BEND + channel, mod_pitch & 0x7f, (mod_pitch >> 7) & 0x7f);
     MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
     checkAlertExit(rc);
@@ -58,6 +61,8 @@ void GridMidi::pitchBend(int channel, int mod_pitch)
 
 void GridMidi::controlChange(int channel, int controller, int mod_modulation)
 {
+    g_gridSynth->controlChange(channel, controller, mod_modulation); // FIXME
+    return;
     MidiMessage message(MIDI::CONTROL_CHANGE + channel, controller, mod_modulation);
     MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
     checkAlertExit(rc);
@@ -65,6 +70,8 @@ void GridMidi::controlChange(int channel, int controller, int mod_modulation)
 
 void GridMidi::polyKeyPressure(int channel, int key, int pressure)
 {
+    g_gridSynth->polyKeyPressure(channel, key, pressure); // FIXME
+    return;
     MidiMessage message(MIDI::POLY_KEY_PRESSURE + channel, key, pressure);
     MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
     checkAlertExit(rc);

@@ -37,8 +37,10 @@ GridSynth::GridSynth()
     checkAlertExit(rc, L"fluid_settings_setstr-dsound");
     adriver_ = new_fluid_audio_driver(settings_, synth_);
 
-    // "\\Users\\rallen\\Documents\\Devel\\Cpp\\WinGridStrument\\SoundFonts\\VintageDreamsWaves-v2.sf2"
-    rc = fluid_synth_sfload(synth_, "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/VintageDreamsWaves-v2.sf2", TRUE);
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/VintageDreamsWaves-v2.sf2"
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/fenderjazz.sf2"
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/60s_Rock_Guitar.sf2"
+    rc = fluid_synth_sfload(synth_, "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/Electric_guitar.sf2", TRUE);
     checkAlertExit(rc, L"fluid_synth_sfload");
     soundfont_id_ = rc; 
 }
@@ -54,12 +56,15 @@ GridSynth::~GridSynth()
 // ======================================================================
 void GridSynth::noteOn(int channel, int note, int midi_pressure)
 {
+    fluid_synth_noteon(synth_, channel, note, midi_pressure);
+    /*
     if (midi_pressure > 0) {
         fluid_synth_noteon(synth_, channel, note, midi_pressure);
     }
     else {
         fluid_synth_noteoff(synth_, channel, note);
     }
+    */
 }
 
 // ======================================================================
@@ -71,11 +76,11 @@ void GridSynth::pitchBend(int channel, int mod_pitch)
 // ======================================================================
 void GridSynth::controlChange(int channel, int controller, int mod_modulation)
 {
-    // FIXME
+    fluid_synth_cc(synth_, channel, controller, mod_modulation);
 }
 
 // ======================================================================
 void GridSynth::polyKeyPressure(int channel, int key, int pressure)
 {
-    // FIXME
+    fluid_synth_key_pressure(synth_, channel, key, pressure);
 }
