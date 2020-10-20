@@ -13,6 +13,8 @@ install:
 build:
   project: WinGridStrument.sln
   verbosity: normal
+after_build:
+  - 7z a WinGridStrument_$(version).zip Release\WinGridStrument.exe
+  - 7z a WinGridStrument_$(version).zip Release\*.dll
 artifacts:
-- path: Release\WinGridStrument.exe Release\*.dll
-  name: WinGridStrument_$(version)
+- path: WinGridStrument_$(version).zip
