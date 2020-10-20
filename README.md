@@ -11,7 +11,7 @@ and **requires a touchscreen** to work.  Developed on a Surface Pro 7.
 Let me know if it works for you.  Send feedback on twitter or file an Issue.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/7n24031r405mv2bv?svg=true)](https://ci.appveyor.com/project/rogerallen/wingridstrument)
-You can get pre-built binaries at this link.  Click the build status button and look for the WinGridStrument.exe under the
+You can get pre-built binaries at this link.  Click the build status button and look for the WinGridStrument.exe and other dll files under the
 Artifacts menu.
 
 ## Building
@@ -40,12 +40,16 @@ setting controls how far you must move to reach a full effect.
 
 Slide your finger vertically to control the modulation of the note.  Sliding up or down one note gets the full effect.
 
+To use Sountfonts, download them and put the full path to the file into the preferences dialog box.  You will need to download 
+your own files.  For example: https://www.zanderjaz.com/downloads/soundfonts/guitars/
+
+To use MIDI:
 1. Start [loopMIDI](http://www.tobias-erichsen.de/software/loopmidi.html) 
 2. Connect your MIDI software synthesizer to listen to the LoopMIDI port.
 3. Start app & set preferences to connect to LoopMIDI port.
 4. Enjoy!
 
-If you do not have a DAW, or just want to quickly try GridStrument out, you can use the internal Microsoft GS 
+If you do not have a DAW, or just want to quickly try GridStrument MIDI out, you can use the internal Microsoft GS 
 synthesizer, but it isn't that responsive.
 
 ### Preference Controls

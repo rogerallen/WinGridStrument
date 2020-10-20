@@ -1,7 +1,8 @@
-version: 1.0.{build}
+version: 1.1.{build}
 image: Visual Studio 2019
 configuration: Release
 platform: x86
+cache: c:\tools\vcpkg\installed\
 install:
   - cd C:\Tools\vcpkg
   - git pull
