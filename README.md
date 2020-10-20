@@ -11,7 +11,7 @@ and **requires a touchscreen** to work.  Developed on a Surface Pro 7.
 Let me know if it works for you.  Send feedback on twitter or file an Issue.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/7n24031r405mv2bv?svg=true)](https://ci.appveyor.com/project/rogerallen/wingridstrument)
-You can get pre-built binaries at this link.  Click the build status button and look for the WinGridStrument_{VERSION}.zip file under the
+You can get pre-built binaries at this link.  Click the build status button and look for the WinGridStrument_VERSION.zip file under the
 Artifacts menu.
 
 ## Building
