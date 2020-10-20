@@ -14,6 +14,15 @@ Let me know if it works for you.  Send feedback on twitter or file an Issue.
 You can get pre-built binaries at this link.  Click the build status button and look for the WinGridStrument.exe under the
 Artifacts menu.
 
+## Building
+
+Depends on [FluidSynth](http://www.fluidsynth.org/).  It was simple to install this via [vcpkg](https://github.com/microsoft/vcpkg) and 
+following vcpkg instructions for working with Visual Studio.
+
+```
+vcpkg install fluidsynth
+```
+
 ## Usage
 
 Press anywhere on the grid to strike a note.  Press down using multiple fingers to create chords.  Notes are arranged 
