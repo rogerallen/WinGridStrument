@@ -1,0 +1,17 @@
+version: 1.0.{build}
+image: Visual Studio 2019
+configuration: Release
+platform: x86
+install:
+  - cd C:\Tools\vcpkg
+  - git pull
+  - .\bootstrap-vcpkg.bat
+  - vcpkg install fluidsynth:x86-windows
+  - vcpkg integrate install
+  - cd %APPVEYOR_BUILD_FOLDER%
+build:
+  project: WinGridStrument.sln
+  verbosity: normal
+artifacts:
+- path: x64/Release/WinGridStrument.exe
+  name: binary

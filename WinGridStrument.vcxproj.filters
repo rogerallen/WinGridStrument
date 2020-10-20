@@ -75,5 +75,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+    <None Include="appveyor.yml" />
   </ItemGroup>
 </Project>
