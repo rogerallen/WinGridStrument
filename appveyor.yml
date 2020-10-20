@@ -14,4 +14,5 @@ build:
   project: WinGridStrument.sln
   verbosity: normal
 artifacts:
-- path: Release
+- path: Release\WinGridStrument.exe Release\*.dll
+  name: WinGridStrument_$(version)
