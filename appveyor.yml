@@ -14,7 +14,7 @@ build:
   project: WinGridStrument.sln
   verbosity: normal
 after_build:
-  - 7z a WinGridStrument_$(APPVEYOR_BUILD_VERSION).zip Release\WinGridStrument.exe
-  - 7z a WinGridStrument_$(APPVEYOR_BUILD_VERSION).zip Release\*.dll
+  - 7z a WinGridStrument_%APPVEYOR_BUILD_VERSION%.zip Release\WinGridStrument.exe
+  - 7z a WinGridStrument_%APPVEYOR_BUILD_VERSION%.zip Release\*.dll
 artifacts:
 - path: WinGridStrument_$(APPVEYOR_BUILD_VERSION).zip
