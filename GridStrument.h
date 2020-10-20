@@ -25,6 +25,7 @@
 #include <assert.h>
 #include "GridPointer.h"
 #include "GridMidi.h"
+#include "GridSynth.h"
 
 // ======================================================================
 // color theme enums
@@ -171,7 +172,9 @@ class GridStrument
     int pref_grid_size_;
     bool pref_channel_per_row_mode_;
     bool pref_hex_grid_mode_;
-    bool pref_use_synth_;
+    bool pref_play_midi_;
+    bool pref_play_soundfont_;
+    std::string pref_soundfont_path_;
 
     // all of the current finger touches in one dictionary
     std::map<int, GridPointer> grid_pointers_;
@@ -180,9 +183,13 @@ class GridStrument
     GridMidi* midi_device_;          // the current midi output
     int midi_channel_;               // next midi channel to use
     GridBrushes brushes_;            // all of our brushes
+    // Synth var
+    GridSynth* grid_synth_;
 
 public:
     GridStrument(HMIDIOUT midiDevice);
+    ~GridStrument();
+
     void midiDevice(HMIDIOUT midiDevice);
     void resize(D2D1_SIZE_U size);
     void draw(ID2D1HwndRenderTarget* d2dRenderTarget, IDWriteTextFormat* dwriteTextFormat);
@@ -234,8 +241,24 @@ public:
             resize(size_);
         }
     }
-    bool prefUseSynth() { return pref_use_synth_; }
-    void prefUseSynth(bool mode) { pref_use_synth_ = mode; }
+    bool prefPlayMidi() { return pref_play_midi_; }
+    void prefPlayMidi(bool mode) { 
+        pref_play_midi_ = mode; 
+        midi_device_->playMidi(pref_play_midi_);
+    }
+    bool prefPlaySoundfont() { return pref_play_soundfont_; }
+    void prefPlaySoundfont(bool mode) { 
+        pref_play_soundfont_ = mode;
+        midi_device_->playSynth(pref_play_soundfont_);
+    }
+    std::string prefSoundfontPath() { return pref_soundfont_path_; }
+    void prefSoundfontPath(std::string s) {
+        // don't reload the soundfont unnecessarily
+        if (s != pref_soundfont_path_) {
+            pref_soundfont_path_ = s;
+            grid_synth_->loadSoundfont(pref_soundfont_path_);
+        }
+    }
 
 private:
     void drawPointers(ID2D1HwndRenderTarget* d2dRenderTarget);

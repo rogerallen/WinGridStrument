@@ -45,21 +45,33 @@ GridStrument::GridStrument(HMIDIOUT midiDevice)
     pref_channel_per_row_mode_ = false;
     pref_pitch_bend_mask_ = 0x3fff;
     pref_hex_grid_mode_ = true;
-    pref_use_synth_ = true; // FIXME
+    pref_play_midi_ = false;
+    pref_play_soundfont_ = false; 
+    pref_soundfont_path_ = "";
 
     size_ = D2D1::SizeU(0, 0);
     num_grids_x_ = num_grids_y_ = 0;
-    midi_device_ = new GridMidi(midiDevice);
+
+    grid_synth_ = new GridSynth();
+
+    midi_device_ = new GridMidi(midiDevice, grid_synth_);
     midi_channel_ = pref_midi_channel_min_;
 
+}
+
+GridStrument::~GridStrument()
+{
+    free(midi_device_);
+    free(grid_synth_);
 }
 
 // ======================================================================
 // update the midi output device
 //
-void GridStrument::midiDevice(HMIDIOUT midiDevice) {
+void GridStrument::midiDevice(HMIDIOUT midiDevice) 
+{
     free(midi_device_);
-    midi_device_ = new GridMidi(midiDevice);
+    midi_device_ = new GridMidi(midiDevice, grid_synth_);
 }
 
 // ======================================================================
@@ -310,7 +322,8 @@ void GridStrument::pointerDown(int id, RECT rect, POINT point, int pressure)
 // ======================================================================
 // default way to choose next midi channel.
 //
-void GridStrument::nextMidiChannel() {
+void GridStrument::nextMidiChannel() 
+{
     midi_channel_++;
     if (midi_channel_ > pref_midi_channel_max_) {
         midi_channel_ = pref_midi_channel_min_;
@@ -382,7 +395,8 @@ void GridStrument::pointerUp(int id)
 // ======================================================================
 // convert window point to grid x.  -1 if not in the grid
 //
-int GridStrument::pointToGridColumn(POINT point) {
+int GridStrument::pointToGridColumn(POINT point) 
+{
     if (point.x > num_grids_x_ * pref_grid_size_) {
         return -1;
     }
@@ -393,7 +407,8 @@ int GridStrument::pointToGridColumn(POINT point) {
 // ======================================================================
 // convert window point to grid y. -1 if not in the grid
 //
-int GridStrument::pointToGridRow(POINT point) {
+int GridStrument::pointToGridRow(POINT point) 
+{
     if (point.y > num_grids_y_ * pref_grid_size_) {
         return -1;
     }

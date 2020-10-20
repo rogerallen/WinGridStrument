@@ -19,13 +19,13 @@
 #include "GridUtils.h"
 #include <iostream>
 
-// FIXME
-#include "GridSynth.h"
-extern GridSynth* g_gridSynth;
-
-GridMidi::GridMidi(HMIDIOUT midiDevice)
+// Not just a midi device any longer.  A Midi or Synth output
+GridMidi::GridMidi(HMIDIOUT midiDevice, GridSynth *gridSynth)
 {
     midi_device_ = midiDevice;
+    grid_synth_ = gridSynth;
+    play_midi_ = false;
+    play_synth_ = false;
 }
 
 void checkAlertExit(MMRESULT rc) {
@@ -41,38 +41,48 @@ void checkAlertExit(MMRESULT rc) {
 
 void GridMidi::noteOn(int channel, int note, int midi_pressure)
 {
-    g_gridSynth->noteOn(channel, note, midi_pressure); // FIXME
-    return;
-
-    MidiMessage message(MIDI::NOTE_ON + channel, note, midi_pressure);
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
-    checkAlertExit(rc);
+    if (play_synth_) {
+        grid_synth_->noteOn(channel, note, midi_pressure); // FIXME
+    }
+    if (play_midi_) {
+        MidiMessage message(MIDI::NOTE_ON + channel, note, midi_pressure);
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+        checkAlertExit(rc);
+    }
 }
 
 void GridMidi::pitchBend(int channel, int mod_pitch)
 {
-    g_gridSynth->pitchBend(channel, mod_pitch); // FIXME
-    return;
-
-    MidiMessage message(MIDI::PITCH_BEND + channel, mod_pitch & 0x7f, (mod_pitch >> 7) & 0x7f);
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
-    checkAlertExit(rc);
+    if (play_synth_) {
+        grid_synth_->pitchBend(channel, mod_pitch); // FIXME
+    }
+    if (play_midi_) {
+        MidiMessage message(MIDI::PITCH_BEND + channel, mod_pitch & 0x7f, (mod_pitch >> 7) & 0x7f);
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+        checkAlertExit(rc);
+    }
 }
 
 void GridMidi::controlChange(int channel, int controller, int mod_modulation)
 {
-    g_gridSynth->controlChange(channel, controller, mod_modulation); // FIXME
-    return;
-    MidiMessage message(MIDI::CONTROL_CHANGE + channel, controller, mod_modulation);
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
-    checkAlertExit(rc);
+    if (play_synth_) {
+        grid_synth_->controlChange(channel, controller, mod_modulation); // FIXME
+    }
+    if (play_midi_) {
+        MidiMessage message(MIDI::CONTROL_CHANGE + channel, controller, mod_modulation);
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+        checkAlertExit(rc);
+    }
 }
 
 void GridMidi::polyKeyPressure(int channel, int key, int pressure)
 {
-    g_gridSynth->polyKeyPressure(channel, key, pressure); // FIXME
-    return;
-    MidiMessage message(MIDI::POLY_KEY_PRESSURE + channel, key, pressure);
-    MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
-    checkAlertExit(rc);
+    if (play_synth_) {
+        grid_synth_->polyKeyPressure(channel, key, pressure); // FIXME
+    }
+    if (play_midi_) {
+        MidiMessage message(MIDI::POLY_KEY_PRESSURE + channel, key, pressure);
+        MMRESULT rc = midiOutShortMsg(midi_device_, message.data());
+        checkAlertExit(rc);
+    }
 }

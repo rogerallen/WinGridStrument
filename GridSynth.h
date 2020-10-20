@@ -19,6 +19,8 @@
 
 #include <fluidsynth.h>
 
+#include <string>
+
 class GridSynth
 {
     fluid_settings_t     *settings_;
@@ -29,6 +31,8 @@ class GridSynth
 public:
     GridSynth();
     ~GridSynth();
+
+    void loadSoundfont(std::string soundfont_path_);
 
     void noteOn(int channel, int note, int midi_pressure);
     void pitchBend(int channel, int mod_pitch);

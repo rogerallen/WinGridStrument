@@ -24,8 +24,10 @@
 #define IDC_PITCH_BEND_RANGE2           1008
 #define IDC_PITCH_BEND_MASK             1008
 #define IDC_COLOR_THEME_COMBO           1009
-#define IDC_GUITAR_MODE2                1010
 #define IDC_HEX_GRID_MODE               1010
+#define IDC_PLAY_MIDI                   1011
+#define IDC_SOUNDFONT_PATH              1012
+#define IDC_PLAY_SOUNDFONT              1013
 #define ID_FILE_PREFERENCES             32771
 #define IDM_PREFS                       32772
 #define IDC_STATIC                      -1

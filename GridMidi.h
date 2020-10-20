@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // ======================================================================
+#include "GridSynth.h"
+
 #include <windows.h>
 #include <mmsystem.h>
 
@@ -50,8 +52,14 @@ namespace MIDI {
 class GridMidi
 {
     HMIDIOUT midi_device_;
+    GridSynth *grid_synth_;
+    bool play_midi_;
+    bool play_synth_;
 public:
-    GridMidi(HMIDIOUT midiDevice);
+    GridMidi(HMIDIOUT midiDevice, GridSynth *gridSynth);
+
+    void playMidi(bool playMidi) { play_midi_ = playMidi; }
+    void playSynth(bool playSynth) { play_synth_ = playSynth; }
 
     void noteOn(int channel, int note, int midi_pressure);
     void pitchBend(int channel, int mod_pitch);

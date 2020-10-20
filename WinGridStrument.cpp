@@ -35,7 +35,6 @@
 
 #include "GridStrument.h"
 #include "GridUtils.h"
-#include "GridSynth.h"
 
 #include <map>
 #include <cassert>
@@ -44,6 +43,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+//#include <locale>
+//#include <codecvt>
 
 #include <d2d1.h>
 #pragma comment(lib, "d2d1")
@@ -56,7 +57,8 @@ const static int MAX_LOADSTRING = 100;
 enum class Pref {
     MIDI_DEVICE_INDEX, GUITAR_MODE, PITCH_BEND_RANGE, PITCH_BEND_MASK,
     MODULATION_CONTROLLER, MIDI_CHANNEL_MIN, MIDI_CHANNEL_MAX,
-    GRID_SIZE, CHANNEL_PER_ROW_MODE, COLOR_THEME, HEX_GRID_MODE
+    GRID_SIZE, CHANNEL_PER_ROW_MODE, COLOR_THEME, HEX_GRID_MODE,
+    PLAY_MIDI, PLAY_SOUNDFONT, SOUNDFONT_PATH
 };
 
 // Global Variables:
@@ -74,9 +76,6 @@ IDWriteTextFormat* g_textFormat;
 HMIDIOUT g_midiDevice;
 int g_midiDeviceIndex;
 std::vector<std::wstring> g_midiDeviceNames;
-
-// Synth var
-GridSynth *g_gridSynth;  // FIXME -- move this into GridStrument class
 
 // Instrument Class Vars
 GridStrument* g_gridStrument;
@@ -115,12 +114,18 @@ void QueryMidiDevices();
 MMRESULT StartMidi();
 void StopMidi();
 
-int PrefGetDefault(Pref key);
+int PrefGetDefaultInt(Pref key);
+std::wstring PrefGetDefaultString(Pref key);
 std::wstring PrefGetLabel(Pref key);
 int PrefGetInt(Pref key);
 void PrefSetInt(Pref key, int value);
+std::wstring PrefGetString(Pref key);
+void PrefSetString(Pref key, std::wstring value);
 
 void AlertExit(HWND hWnd, LPCTSTR text);
+
+std::wstring string2wstring(const std::string &str);
+std::string wstring2string(const std::wstring &wstr);
 
 // ======================================================================
 // main windows entry function
@@ -144,8 +149,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         AlertExit(NULL, L"Error opening MIDI Output.");
     }
 
-    g_gridSynth = new GridSynth();
-
     g_gridStrument = new GridStrument(g_midiDevice);
     g_gridStrument->prefGuitarMode(PrefGetInt(Pref::GUITAR_MODE));
     g_gridStrument->prefPitchBendRange(PrefGetInt(Pref::PITCH_BEND_RANGE));
@@ -156,6 +159,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     g_gridStrument->prefChannelPerRowMode(PrefGetInt(Pref::CHANNEL_PER_ROW_MODE));
     g_gridStrument->prefColorTheme(static_cast<Theme>(PrefGetInt(Pref::COLOR_THEME)));
     g_gridStrument->prefHexGridMode(PrefGetInt(Pref::HEX_GRID_MODE));
+    g_gridStrument->prefPlayMidi(PrefGetInt(Pref::PLAY_MIDI));
+    g_gridStrument->prefPlaySoundfont(PrefGetInt(Pref::PLAY_SOUNDFONT));
+    g_gridStrument->prefSoundfontPath(wstring2string(PrefGetString(Pref::SOUNDFONT_PATH)));
 
     WCHAR title[MAX_LOADSTRING];       // The title bar textfP
     WCHAR windowClass[MAX_LOADSTRING]; // the main window class name
@@ -184,7 +190,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     StopMidi();
 
     delete g_gridStrument;
-    delete g_gridSynth;
 
     return (int)msg.wParam;
 }
@@ -414,6 +419,13 @@ void InitPrefsDialog(const HWND& hDlg)
 
     CheckDlgButton(hDlg, IDC_HEX_GRID_MODE, g_gridStrument->prefHexGridMode());
 
+    CheckDlgButton(hDlg, IDC_PLAY_MIDI, g_gridStrument->prefPlayMidi());
+
+    CheckDlgButton(hDlg, IDC_PLAY_SOUNDFONT, g_gridStrument->prefPlaySoundfont());
+
+    tmp_str = string2wstring(g_gridStrument->prefSoundfontPath());
+    SetDlgItemText(hDlg, IDC_SOUNDFONT_PATH, tmp_str.c_str());
+
 }
 
 // ======================================================================
@@ -469,6 +481,19 @@ void OkUpdatePrefsDialog(const HWND& hDlg)
     bool hex_grid_mode = IsDlgButtonChecked(hDlg, IDC_HEX_GRID_MODE);
     g_gridStrument->prefHexGridMode(hex_grid_mode);
     PrefSetInt(Pref::HEX_GRID_MODE, hex_grid_mode);
+
+    bool play_midi_mode = IsDlgButtonChecked(hDlg, IDC_PLAY_MIDI);
+    g_gridStrument->prefPlayMidi(play_midi_mode);
+    PrefSetInt(Pref::PLAY_MIDI, play_midi_mode);
+
+    bool play_soundfont_mode = IsDlgButtonChecked(hDlg, IDC_PLAY_SOUNDFONT);
+    g_gridStrument->prefPlaySoundfont(play_soundfont_mode);
+    PrefSetInt(Pref::PLAY_SOUNDFONT, play_soundfont_mode);
+
+    wchar_t soundfont_path_text[1024];
+    GetDlgItemText(hDlg, IDC_SOUNDFONT_PATH, soundfont_path_text, 1024);
+    g_gridStrument->prefSoundfontPath(wstring2string(soundfont_path_text));
+    PrefSetString(Pref::SOUNDFONT_PATH, soundfont_path_text);
 
     HWND midiDeviceComboBox = GetDlgItem(hDlg, IDC_MIDI_DEV_COMBO);
     int midi_device = static_cast<int>(SendMessage(midiDeviceComboBox, CB_GETCURSEL, (WPARAM)0, (LPARAM)0));
@@ -737,7 +762,7 @@ void StopMidi()
 // ======================================================================
 // helper for all Pref enum default values.
 //
-int PrefGetDefault(Pref key)
+int PrefGetDefaultInt(Pref key)
 {
     int value = -1;
     switch (key) {
@@ -773,6 +798,27 @@ int PrefGetDefault(Pref key)
         break;
     case Pref::HEX_GRID_MODE:
         value = 0;
+        break;
+    case Pref::PLAY_MIDI:
+        value = 1;
+        break;
+    case Pref::PLAY_SOUNDFONT:
+        value = 0;
+        break;
+    default:
+        std::wostringstream text;
+        text << "Unknown Pref::enum=" << int(key);
+        AlertExit(NULL, text.str().c_str());
+    }
+    return value;
+}
+
+std::wstring PrefGetDefaultString(Pref key)
+{
+    std::wstring value = L"";
+    switch (key) {
+    case Pref::SOUNDFONT_PATH:
+        value = L"";
         break;
     default:
         std::wostringstream text;
@@ -822,6 +868,15 @@ std::wstring PrefGetLabel(Pref key)
     case Pref::HEX_GRID_MODE:
         key_str = L"HEX_GRID_MODE";
         break;
+    case Pref::PLAY_MIDI:
+        key_str = L"PLAY_MIDI";
+        break;
+    case Pref::PLAY_SOUNDFONT:
+        key_str = L"PLAY_SOUNDFONT";
+        break;
+    case Pref::SOUNDFONT_PATH:
+        key_str = L"SOUNDFONT_PATH";
+        break;
     default:
         std::wostringstream text;
         text << "Unknown Pref::enum=" << int(key);
@@ -835,7 +890,7 @@ std::wstring PrefGetLabel(Pref key)
 // HKEY_CURRENT_USER\Software\GridStrument\<key>
 //
 int PrefGetInt(Pref key) {
-    int value = PrefGetDefault(key);
+    int value = PrefGetDefaultInt(key);
     std::wstring key_str = PrefGetLabel(key);
 
     HKEY hKey;
@@ -852,9 +907,9 @@ int PrefGetInt(Pref key) {
         reinterpret_cast<LPBYTE>(&regValue),
         &regValueSize);
     if (rs == ERROR_SUCCESS) {
-        std::wcout << "PrefGetInt key=" << key_str << " value=" << value << std::endl;
         // return registry value
         value = regValue;
+        std::wcout << "PrefGetInt key=" << key_str << " value=" << value << std::endl;
     }
     rs = RegCloseKey(hKey);
     if (rs != ERROR_SUCCESS) {
@@ -904,4 +959,116 @@ void PrefSetInt(Pref key, int value) {
         text << "Unable to RegCloseKey returned=" << rs;
         AlertExit(NULL, text.str().c_str());
     }
+}
+
+// ======================================================================
+// get STRING value from Windows Registry stored in
+// HKEY_CURRENT_USER\Software\GridStrument\<key>
+//
+std::wstring PrefGetString(Pref key) {
+    std::wstring value = PrefGetDefaultString(key);
+    std::wstring key_str = PrefGetLabel(key);
+
+    HKEY hKey;
+    LONG rs = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, KEY_READ, &hKey);
+    if (rs != ERROR_SUCCESS) {
+        std::wcout << "PrefGetString key=" << key_str << " default=" << value << std::endl;
+        // return default
+        return value;
+    }
+
+    DWORD lpType = REG_SZ;
+    DWORD dwSize = 0;
+    TCHAR lszValue[1024];
+    rs = RegQueryValueEx(hKey, key_str.c_str(), 0, &lpType,
+        reinterpret_cast<LPBYTE>(&lszValue),
+        &dwSize);
+    if (rs == ERROR_SUCCESS) {
+        lszValue[dwSize] = 0;
+        value.assign(lszValue, dwSize);
+        std::wcout << "PrefGetString key=" << key_str << " value=" << value << std::endl;
+        // return registry value
+    }
+    rs = RegCloseKey(hKey);
+    if (rs != ERROR_SUCCESS) {
+        std::wostringstream text;
+        text << "Unable to RegCloseKey returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
+    }
+    return value;
+}
+
+// ======================================================================
+// set STRING value in Windows Registry stored in
+// HKEY_CURRENT_USER\Software\GridStrument\<key>
+//
+void PrefSetString(Pref key, std::wstring value) {
+    std::wstring key_str = PrefGetLabel(key);
+
+    HKEY hKey;
+    LONG rs = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, KEY_ALL_ACCESS, &hKey);
+    if (rs == ERROR_FILE_NOT_FOUND) {
+        DWORD disposition;
+        rs = RegCreateKeyEx(HKEY_CURRENT_USER, L"Software\\GridStrument", 0, 0, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, 0, &hKey, &disposition);
+        assert((disposition == REG_CREATED_NEW_KEY) ||
+            (disposition == REG_OPENED_EXISTING_KEY));
+        if (rs != ERROR_SUCCESS) {
+            std::wostringstream text;
+            text << "Unable to RegCreateKeyEx returned=" << rs;
+            AlertExit(NULL, text.str().c_str());
+        }
+    }
+    else if (rs != ERROR_SUCCESS) {
+        std::wostringstream text;
+        text << "Unable to RegOpenKeyEx returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
+    }
+
+    rs = RegSetValueEx(hKey, key_str.c_str(), NULL, REG_SZ, (const BYTE*)value.c_str(), value.size()+1);
+    if (rs != ERROR_SUCCESS) {
+        std::wostringstream text;
+        text << "Unable to RegSetValueEx returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
+    }
+    rs = RegCloseKey(hKey);
+    if (rs != ERROR_SUCCESS) {
+        std::wostringstream text;
+        text << "Unable to RegCloseKey returned=" << rs;
+        AlertExit(NULL, text.str().c_str());
+    }
+}
+
+// First, I thought this would do it
+// https://stackoverflow.com/questions/4804298/how-to-convert-wstring-into-string
+// but then I find C++17 deprecation warnings suggesting me to do this
+// https://stackoverflow.com/questions/215963/how-do-you-properly-use-widechartomultibyte
+// Sometimes C++ sucks.
+std::wstring string2wstring(const std::string &str)
+{
+#if 0
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+    return converterX.from_bytes(str);
+#else // windows-only
+    if (str.empty()) return std::wstring();
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+#endif
+}
+
+std::string wstring2string(const std::wstring &wstr)
+{
+#if 0
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+    return converterX.to_bytes(wstr);
+#else // windows-only
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+#endif
 }

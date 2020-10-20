@@ -37,12 +37,7 @@ GridSynth::GridSynth()
     checkAlertExit(rc, L"fluid_settings_setstr-dsound");
     adriver_ = new_fluid_audio_driver(settings_, synth_);
 
-    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/VintageDreamsWaves-v2.sf2"
-    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/fenderjazz.sf2"
-    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/60s_Rock_Guitar.sf2"
-    rc = fluid_synth_sfload(synth_, "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/Electric_guitar.sf2", TRUE);
-    checkAlertExit(rc, L"fluid_synth_sfload");
-    soundfont_id_ = rc; 
+    soundfont_id_ = -1;
 }
 
 // ======================================================================
@@ -54,33 +49,44 @@ GridSynth::~GridSynth()
 }
 
 // ======================================================================
+// HOWTO FIXME? On windows the path is wchar.  We convert it
+// to a string before calling this routine, but this might not be right
+// for international users.
+void GridSynth::loadSoundfont(std::string soundfont_path_)
+{
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/VintageDreamsWaves-v2.sf2"
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/fenderjazz.sf2"
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/60s_Rock_Guitar.sf2"
+    // "/Users/rallen/Documents/Devel/Cpp/WinGridStrument/SoundFonts/Electric_guitar.sf2"
+    soundfont_id_ = fluid_synth_sfload(synth_, soundfont_path_.c_str(), TRUE);
+    // FLUID_FAILED is -1, so we will not play if the id is < 0
+}
+
+
+// ======================================================================
 void GridSynth::noteOn(int channel, int note, int midi_pressure)
 {
+    if (soundfont_id_ < 0) return;
     fluid_synth_noteon(synth_, channel, note, midi_pressure);
-    /*
-    if (midi_pressure > 0) {
-        fluid_synth_noteon(synth_, channel, note, midi_pressure);
-    }
-    else {
-        fluid_synth_noteoff(synth_, channel, note);
-    }
-    */
 }
 
 // ======================================================================
 void GridSynth::pitchBend(int channel, int mod_pitch)
 {
+    if (soundfont_id_ < 0) return;
     fluid_synth_pitch_bend(synth_, channel, mod_pitch);
 }
 
 // ======================================================================
 void GridSynth::controlChange(int channel, int controller, int mod_modulation)
 {
+    if (soundfont_id_ < 0) return;
     fluid_synth_cc(synth_, channel, controller, mod_modulation);
 }
 
 // ======================================================================
 void GridSynth::polyKeyPressure(int channel, int key, int pressure)
 {
+    if (soundfont_id_ < 0) return;
     fluid_synth_key_pressure(synth_, channel, key, pressure);
 }
