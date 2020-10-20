@@ -14,17 +14,4 @@ build:
   project: WinGridStrument.sln
   verbosity: normal
 artifacts:
-- path: Release/WinGridStrument.exe
-  name: binary
-- path: Release/libfluidsynth-2.dll
-  name: binary
-- path: Release/glib-2.dll
-  name: binary
-- path: Release/pcre.dll
-  name: binary
-- path: Release/libiconv.dll
-  name: binary
-- path: Release/libcharset.dll
-  name: binary
-- path: Release/libintl.dll
-  name: binary
+- path: WinGridStrument_1.1.{build}.zip
