@@ -4,12 +4,12 @@ configuration: Release
 platform: x86
 cache: c:\tools\vcpkg\installed\
 install:
-  - cd C:\Tools\vcpkg
-  - git pull
-  - .\bootstrap-vcpkg.bat
-  - vcpkg install fluidsynth:x86-windows
-  - vcpkg integrate install
-  - cd %APPVEYOR_BUILD_FOLDER%
+  - cmd: cd C:\Tools\vcpkg
+  - cmd: git pull
+  - cmd: .\bootstrap-vcpkg.bat
+  - cmd: vcpkg install fluidsynth:x86-windows
+  - cmd: vcpkg integrate install
+  - cmd: cd %APPVEYOR_BUILD_FOLDER%
 build:
   project: WinGridStrument.sln
   verbosity: normal
